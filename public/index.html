@@ -158,8 +158,16 @@ body{
 .chief-phases{display:flex;gap:4px;padding:5px 14px;flex-shrink:0;align-items:center;}
 .cph{font-family:'Black Han Sans',sans-serif;font-size:11px;letter-spacing:1px;padding:3px 9px;border-radius:8px;border:1px solid rgba(255,255,255,0.07);color:var(--muted);transition:all .2s;}
 .cph.now{color:#000;border-color:transparent;background:#F5C518;}
+.chief-stage{
+  margin:2px 8px 6px;padding:10px 14px 9px;flex-shrink:0;
+  border:1px solid rgba(245,197,24,0.28);border-radius:10px;
+  background:linear-gradient(180deg,rgba(245,197,24,0.09),rgba(245,197,24,0.03));
+}
+.chief-stage-lbl{font-family:'Black Han Sans',sans-serif;font-size:10px;letter-spacing:4px;color:#F5C518;text-transform:uppercase;}
+.chief-stage-name{font-family:'Black Han Sans',sans-serif;font-size:clamp(24px,5.2vw,42px);letter-spacing:2px;line-height:1.05;margin-top:3px;color:#F5C518;}
+.chief-stage-detail{font-family:'Black Han Sans',sans-serif;font-size:12px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-top:4px;}
 
-/* Round pips */
+   /* Round pips */
 .chief-pips{display:flex;gap:3px;padding:0 14px 5px;flex-shrink:0;}
 .cpip{height:3px;flex:1;border-radius:2px;background:rgba(255,255,255,0.07);transition:background .3s;}
 .cpip.done{background:#F5C518;opacity:.4;}
@@ -654,15 +662,16 @@ body.instr-mode .mb-instr-play{display:flex;}
    COACH HOLD BUTTON
 ═══════════════════════════════════ */
 .hold-btn{
-  background:linear-gradient(135deg,#B71C1C,#7F0000);
-  border:none;border-radius:12px;
-  color:#fff;font-family:'Black Han Sans',sans-serif;
-  font-size:13px;letter-spacing:2px;padding:10px 14px;
-  cursor:pointer;flex-shrink:0;
-  box-shadow:0 0 16px rgba(183,28,28,0.4);
-  transition:transform .1s,box-shadow .1s;
+background:linear-gradient(135deg,#fff,#ffd6d6);
+  border:2px solid rgba(255,43,43,0.7);border-radius:12px;
+  color:#FF1F1F;font-family:'Black Han Sans',sans-serif;font-weight:900;
+  font-size:18px;letter-spacing:2.5px;padding:12px 18px;
+  cursor:pointer;flex-shrink:0;text-transform:uppercase;
+  text-shadow:0 0 8px rgba(255,31,31,0.35);
+  box-shadow:0 0 20px rgba(183,28,28,0.45);
+  transition:transform .1s,box-shadow .1s,filter .1s;
 }
-.hold-btn:active{transform:scale(0.93);box-shadow:0 0 30px rgba(183,28,28,0.7);}
+.hold-btn:active{transform:scale(0.93);box-shadow:0 0 34px rgba(183,28,28,0.8);filter:brightness(1.03);}
 
 /* ═══════════════════════════════════
    PAUSE OVERLAY — collapsible full cauldron
@@ -981,7 +990,7 @@ audio{display:none;}
       <div class="chief-code-pill" id="c-code-pill" title="Session code — instructors enter this to join"></div>
       <div class="chief-pips" id="c-pips" style="flex:1;padding:0 6px;"></div>
       <div style="display:flex;gap:7px;align-items:center;">
-        <button class="hold-btn" onclick="triggerHold()" title="Abrupt hold for coaching">⏸ HOLD</button>
+        <button class="hold-btn" onclick="triggerHold()" title="Abrupt hold for coaching">WTF HOLD</button>
         <button class="cauldron-full-btn" onclick="openFullCauldron()" title="View full cauldron">📋</button>
         <button class="ccb sm" onclick="prevRound()" title="Prev Round">⏮</button>
         <button class="ccb sm" onclick="prevPhase()" title="Prev Step">◀</button>
@@ -999,6 +1008,11 @@ audio{display:none;}
       <div style="font-family:'Black Han Sans',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);" id="c-rnd">RND 1/8</div>
     </div>
 
+     <div class="chief-stage">
+      <div class="chief-stage-lbl">CURRENT STAGE</div>
+      <div class="chief-stage-name" id="c-stage-name">ROUND 1 / 8</div>
+      <div class="chief-stage-detail" id="c-stage-detail">60S — TECHNIQUE OVERVIEW</div>
+    </div>
     <!-- 4-panel grid -->
     <div class="panels" id="panels">
       <!-- built by JS -->
@@ -2091,8 +2105,6 @@ function play(){
 }
 function pause(){
   running=false; clearInterval(ticker); setPlayBtns();
-  const ap = document.getElementById('audio');
-  if(isChief && ap && !ap.paused){ ap.pause(); updateMusicBar(); }
   populateSikeOverlay();
   showSike(); bcast({sike:true});
 }
@@ -2114,7 +2126,7 @@ function tick(){
   if(timeLeft<=0){
     if(phase<4){
       phase++; timeLeft=PT[phase];
-      flashStep(); beep('step');
+     flashStep(); beep('step'); setTimeout(()=>beep('step'),120);
     } else {
       if(round<TOTAL_ROUNDS-1){
         round++; phase=0; timeLeft=PT[0];
@@ -2147,9 +2159,20 @@ function renderChief(){
   else if(timeLeft<=10) ck.classList.add('warn');
 
   document.getElementById('c-rnd').textContent=`RND ${round+1}/${TOTAL_ROUNDS}`;
+   renderChiefStage();
   renderChiefPhases();
   renderChiefPips();
   renderPanels();
+}
+   
+function renderChiefStage(){
+  const nameEl = document.getElementById('c-stage-name');
+  const detailEl = document.getElementById('c-stage-detail');
+  if(!nameEl || !detailEl) return;
+  const phaseLabel = phase===0 ? '60S — TECHNIQUE OVERVIEW' : `30S — STEP ${phase} OF 4`;
+  nameEl.textContent = `ROUND ${round+1} / ${TOTAL_ROUNDS}`;
+  nameEl.style.color = '#F5C518';
+  detailEl.textContent = phaseLabel;
 }
 
 function buildChiefPhases(){
@@ -2653,14 +2676,14 @@ function bell(c){
     const now = c.currentTime;
     // Compressor to maximize loudness without clipping
     const comp = c.createDynamicsCompressor();
-    comp.threshold.value = -6; comp.knee.value = 3;
-    comp.ratio.value = 4; comp.attack.value = 0.001; comp.release.value = 0.1;
+    comp.threshold.value = -16; comp.knee.value = 0;
+    comp.ratio.value = 16; comp.attack.value = 0.0005; comp.release.value = 0.08;
     comp.connect(c.destination);
 
     // Main bell tones: 2 strikes 120ms apart (boxing bell rings twice)
     [0, 0.12].forEach(startOff => {
       // Fundamental + harmonics for metallic ring
-      [[2637, 1.0],[3951, 0.55],[5274, 0.35],[1319, 0.4],[7902, 0.2]].forEach(([f,v],hi) => {
+       [[2637, 1.45],[3951, 0.9],[5274, 0.6],[1319, 0.7],[7902, 0.4]].forEach(([f,v],hi) => {
         const o = c.createOscillator(), g = c.createGain();
         o.type = 'sine'; o.frequency.value = f;
         o.connect(g); g.connect(comp);
@@ -2678,7 +2701,7 @@ function bell(c){
       const ns = c.createBufferSource(), ng = c.createGain();
       const hpf = c.createBiquadFilter(); hpf.type='highpass'; hpf.frequency.value = 4000;
       ns.buffer = buf; ns.connect(hpf); hpf.connect(ng); ng.connect(comp);
-      ng.gain.setValueAtTime(1.2, now + startOff);
+      ng.gain.setValueAtTime(1.8, now + startOff);
       ns.start(now + startOff);
     });
   }catch(e){}
