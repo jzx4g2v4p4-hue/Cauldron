@@ -1530,18 +1530,16 @@ if(location.hostname !== 'localhost' && !location.hostname.match(/^192\.168|^10\
 restoreSession();
 // Music opt-in is handled inside pickChief only — not here
 
-// ═══════════════════════════════════════════════════
 //  MUSIC OPT-IN (per chief session)
 // ═══════════════════════════════════════════════════
 let musicEnabled = true;
-
 function setMusicPref(yes){
   musicEnabled = yes;
   if(yes){
     showMusicBar();
     initMusicBar();
   } else {
-    const ap = document.getElementById('audio');
+   const ap = document.getElementById('audio');
     if(ap && !ap.paused) ap.pause();
     const mb = document.getElementById('music-bar');
     if(mb) mb.style.display = 'none';
@@ -2006,7 +2004,7 @@ function pickChief(){
   document.getElementById('sess-code').textContent=sessionCode;
   connectWS('chief');
   saveSession();
-  // Always ask the chief at the start of each new session.
+ // Always ask the chief at the start of each new session.
   go('s-music-pref');
 }
 
