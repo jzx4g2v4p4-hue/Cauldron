@@ -167,10 +167,7 @@ body{
 .chief-stage-name{font-family:'Black Han Sans',sans-serif;font-size:clamp(24px,5.2vw,42px);letter-spacing:2px;line-height:1.05;margin-top:3px;color:#F5C518;}
 .chief-stage-detail{font-family:'Black Han Sans',sans-serif;font-size:12px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-top:4px;}
 
-.chief-live-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 10px 12px;min-height:0;}
-#chief-live-rounds{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;align-items:start;}
-
-/* Round pips */
+   /* Round pips */
 .chief-pips{display:flex;gap:3px;padding:0 14px 5px;flex-shrink:0;}
 .cpip{height:3px;flex:1;border-radius:2px;background:rgba(255,255,255,0.07);transition:background .3s;}
 .cpip.done{background:#F5C518;opacity:.4;}
@@ -254,7 +251,7 @@ body{
 /* Panel header */
 .panel-head{
   display:flex;align-items:center;justify-content:space-between;
-  padding:8px 9px 6px;flex-shrink:0;
+   padding:8px 9px 6px;flex-shrink:0;
   border-bottom:1px solid rgba(255,255,255,0.1);
   background:linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02));
   box-shadow:inset 0 -1px 0 rgba(255,255,255,0.08);
@@ -661,23 +658,20 @@ body.instr-mode .mb-instr-play{display:flex;}
   width:calc(100% - 32px);flex-shrink:0;
 }
 
-/* music opt-in is now a full screen (s-music-pref), no modal needed */
-
 /* ═══════════════════════════════════
    COACH HOLD BUTTON
 ═══════════════════════════════════ */
 .hold-btn{
-  width:58px;height:58px;padding:0;
-  border:none;border-radius:50%;
-  background:radial-gradient(circle at 35% 28%,#ff6b6b 0%,#f44336 45%,#8B0000 100%);
-  color:#fff;font-family:'Black Han Sans',sans-serif;font-weight:900;
-  font-size:15px;letter-spacing:2px;line-height:1;
+background:linear-gradient(135deg,#fff,#ffd6d6);
+  border:2px solid rgba(255,43,43,0.7);border-radius:12px;
+  color:#FF1F1F;font-family:'Black Han Sans',sans-serif;font-weight:900;
+  font-size:18px;letter-spacing:2.5px;padding:12px 18px;
   cursor:pointer;flex-shrink:0;text-transform:uppercase;
-  text-shadow:0 0 10px rgba(0,0,0,0.6);
-  box-shadow:0 0 0 1px rgba(255,120,120,0.5),0 0 22px rgba(255,0,0,0.5),inset 0 -6px 12px rgba(0,0,0,0.35);
+  text-shadow:0 0 8px rgba(255,31,31,0.35);
+  box-shadow:0 0 20px rgba(183,28,28,0.45);
   transition:transform .1s,box-shadow .1s,filter .1s;
 }
-.hold-btn:active{transform:scale(0.93);box-shadow:0 0 0 1px rgba(255,140,140,0.65),0 0 34px rgba(255,0,0,0.85),inset 0 -6px 12px rgba(0,0,0,0.4);filter:brightness(1.08);}
+.hold-btn:active{transform:scale(0.93);box-shadow:0 0 34px rgba(183,28,28,0.8);filter:brightness(1.03);}
 
 /* ═══════════════════════════════════
    PAUSE OVERLAY — collapsible full cauldron
@@ -997,7 +991,7 @@ audio{display:none;}
       <div class="chief-code-pill" id="c-code-pill" title="Session code — instructors enter this to join"></div>
       <div class="chief-pips" id="c-pips" style="flex:1;padding:0 6px;"></div>
       <div style="display:flex;gap:7px;align-items:center;">
-        <button class="hold-btn" onclick="triggerHold()" title="Abrupt hold for coaching">WTF</button>
+        <button class="hold-btn" onclick="triggerHold()" title="Abrupt hold for coaching">WTF HOLD</button>
         <button class="cauldron-full-btn" onclick="openFullCauldron()" title="View full cauldron">📋</button>
         <button class="ccb sm" onclick="prevRound()" title="Prev Round">⏮</button>
         <button class="ccb sm" onclick="prevPhase()" title="Prev Step">◀</button>
@@ -1020,9 +1014,14 @@ audio{display:none;}
       <div class="chief-stage-detail" id="c-stage-detail">60S — TECHNIQUE OVERVIEW</div>
     </div>
 
-    <!-- Full cauldron (live, chief) -->
-    <div class="chief-live-scroll" id="chief-live-scroll">
-      <div id="chief-live-rounds"></div>
+     <div class="chief-stage">
+      <div class="chief-stage-lbl">CURRENT STAGE</div>
+      <div class="chief-stage-name" id="c-stage-name">ROUND 1 / 8</div>
+      <div class="chief-stage-detail" id="c-stage-detail">60S — TECHNIQUE OVERVIEW</div>
+    </div>
+    <!-- 4-panel grid -->
+    <div class="panels" id="panels">
+      <!-- built by JS -->
     </div>
 
   </div>
@@ -2138,7 +2137,7 @@ function tick(){
   if(timeLeft<=0){
     if(phase<4){
       phase++; timeLeft=PT[phase];
-      flashStep(); beep('step'); setTimeout(()=>beep('step'),120);
+     flashStep(); beep('step'); setTimeout(()=>beep('step'),120);
     } else {
       if(round<TOTAL_ROUNDS-1){
         round++; phase=0; timeLeft=PT[0];
@@ -2171,7 +2170,7 @@ function renderChief(){
   else if(timeLeft<=10) ck.classList.add('warn');
 
   document.getElementById('c-rnd').textContent=`RND ${round+1}/${TOTAL_ROUNDS}`;
-  renderChiefStage();
+   renderChiefStage();
   renderChiefPhases();
   renderChiefPips();
   renderChiefLiveCauldron();
@@ -2232,6 +2231,16 @@ function renderChiefLiveCauldron(){
     });
     roundsEl.appendChild(col);
   });
+}
+   
+function renderChiefStage(){
+  const nameEl = document.getElementById('c-stage-name');
+  const detailEl = document.getElementById('c-stage-detail');
+  if(!nameEl || !detailEl) return;
+  const phaseLabel = phase===0 ? '60S — TECHNIQUE OVERVIEW' : `30S — STEP ${phase} OF 4`;
+  nameEl.textContent = `ROUND ${round+1} / ${TOTAL_ROUNDS}`;
+  nameEl.style.color = '#F5C518';
+  detailEl.textContent = phaseLabel;
 }
 
 function buildChiefPhases(){
@@ -2742,7 +2751,7 @@ function bell(c){
     // Main bell tones: 2 strikes 120ms apart (boxing bell rings twice)
     [0, 0.12].forEach(startOff => {
       // Fundamental + harmonics for metallic ring
-      [[2637, 1.45],[3951, 0.9],[5274, 0.6],[1319, 0.7],[7902, 0.4]].forEach(([f,v],hi) => {
+       [[2637, 1.45],[3951, 0.9],[5274, 0.6],[1319, 0.7],[7902, 0.4]].forEach(([f,v],hi) => {
         const o = c.createOscillator(), g = c.createGain();
         o.type = 'sine'; o.frequency.value = f;
         o.connect(g); g.connect(comp);
