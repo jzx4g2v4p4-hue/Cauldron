@@ -188,12 +188,11 @@ body{
 /* 5 belts portrait: 2 cols, 3 rows — last panel spans full width */
 .panels.belts-5{
   grid-template-columns:1fr 1fr;
-  grid-auto-rows:minmax(100px,1fr);
-  overflow-y:auto;
+  grid-auto-rows:minmax(0,1fr);
+  overflow:hidden;
 }
 .panels.belts-5 .panel:last-child{
   grid-column:1/-1;
-  max-height:210px;
 }
 @media (orientation:landscape){
   .panels{grid-template-columns:repeat(4,1fr);grid-auto-rows:minmax(0,1fr);overflow:hidden;}
@@ -277,7 +276,7 @@ body{
 }
 
 /* Steps in panel */
-.panel-steps{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:2px;padding:3px 7px 6px;min-height:0;}
+.panel-steps{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:2px;padding:3px 7px 6px;min-height:0;}
 .pstep{
   display:flex;align-items:flex-start;gap:6px;padding:5px 7px;
   border-radius:7px;border-left:2px solid transparent;
@@ -377,7 +376,8 @@ body{
 .ic-round.ic-done{opacity:0.3;}
 
 /* Round header — always visible */
-.ic-rhead{display:flex;align-items:center;gap:10px;padding:9px 12px 7px;border-bottom:1px solid rgba(255,255,255,0.04);}
+.ic-rhead{display:flex;align-items:center;gap:10px;padding:9px 12px 7px;border-bottom:1px solid rgba(255,255,255,0.04);transition:background .2s, box-shadow .2s;}
+.ic-round.ic-current .ic-rhead{background:linear-gradient(90deg,rgba(245,197,24,.2),rgba(245,197,24,.04));box-shadow:inset 4px 0 0 rgba(245,197,24,.8);}
 .ic-rnum{font-family:'Black Han Sans',sans-serif;font-size:13px;min-width:24px;flex-shrink:0;}
 .ic-rname{font-family:'Black Han Sans',sans-serif;font-size:15px;letter-spacing:1px;flex:1;line-height:1.2;}
 .ic-requip{font-family:'Black Han Sans',sans-serif;font-size:10px;letter-spacing:1px;padding:2px 7px;border-radius:4px;background:#B71C1C;color:#fff;flex-shrink:0;text-transform:uppercase;}
@@ -653,7 +653,7 @@ body.instr-mode .mb-instr-play{display:flex;}
 /* ═══════════════════════════════════
    SANDBAGGING BUTTON
 ═══════════════════════════════════ */
-.sandbag-btn{
+.hold-btn{
   background:linear-gradient(135deg,#B71C1C,#7F0000);
   border:none;border-radius:12px;
   color:#fff;font-family:'Black Han Sans',sans-serif;
@@ -662,23 +662,7 @@ body.instr-mode .mb-instr-play{display:flex;}
   box-shadow:0 0 16px rgba(183,28,28,0.4);
   transition:transform .1s,box-shadow .1s;
 }
-.sandbag-btn:active{transform:scale(0.93);box-shadow:0 0 30px rgba(183,28,28,0.7);}
-
-/* ═══════════════════════════════════
-   SANDBAGGING OVERLAY
-═══════════════════════════════════ */
-#sandbag-overlay{
-  position:fixed;top:0;left:0;right:0;bottom:0;
-  background:rgba(180,0,0,0.97);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  z-index:150;opacity:0;pointer-events:none;transition:opacity .15s;
-  text-align:center;padding:24px;
-}
-#sandbag-overlay.show{opacity:1;pointer-events:all;}
-.sb-line1{font-family:'Black Han Sans',sans-serif;font-size:clamp(28px,10vw,58px);letter-spacing:3px;color:#fff;line-height:1.1;animation:sbshake .3s ease;}
-.sb-line2{font-family:'Black Han Sans',sans-serif;font-size:clamp(16px,5vw,28px);letter-spacing:2px;color:rgba(255,255,255,0.7);margin-top:8px;}
-@keyframes sbshake{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
-.sb-dismiss{margin-top:32px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:12px;color:#fff;font-family:'Black Han Sans',sans-serif;font-size:14px;letter-spacing:2px;padding:12px 28px;cursor:pointer;}
+.hold-btn:active{transform:scale(0.93);box-shadow:0 0 30px rgba(183,28,28,0.7);}
 
 /* ═══════════════════════════════════
    PAUSE OVERLAY — collapsible full cauldron
@@ -695,12 +679,15 @@ body.instr-mode .mb-instr-play{display:flex;}
   background:#0a0a0a;
 }
 .sike-rest{font-family:'Black Han Sans',sans-serif;font-size:clamp(28px,8vw,48px);letter-spacing:8px;color:#F5C518;line-height:1;}
-.sike-header-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+.sike-header-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;}
 .sike-line{font-family:'Black Han Sans',sans-serif;font-size:clamp(11px,3vw,15px);letter-spacing:2px;color:var(--text);line-height:1.2;}
 .sike-sub{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;}
-.sike-play{background:linear-gradient(135deg,#F5C518,#C49A0E);color:#000;border:none;border-radius:10px;font-family:'Black Han Sans',sans-serif;font-size:15px;letter-spacing:3px;padding:10px 24px;cursor:pointer;transition:transform .1s;}
-.sike-play:active{transform:scale(0.96);}
-body.instr-mode .sike-play{display:none;}
+.sike-actions{display:flex;gap:8px;align-items:center;}
+.sike-play,.sike-restart{border:none;border-radius:10px;font-family:'Black Han Sans',sans-serif;font-size:13px;letter-spacing:2px;padding:10px 14px;cursor:pointer;transition:transform .1s;}
+.sike-play{background:linear-gradient(135deg,#F5C518,#C49A0E);color:#000;}
+.sike-restart{background:rgba(229,57,53,.12);color:#FF8A80;border:1px solid rgba(229,57,53,.35);}
+.sike-play:active,.sike-restart:active{transform:scale(0.96);}
+body.instr-mode .sike-actions{display:none;}
 body.instr-mode .sike-sub{display:none;}
 
 /* Stage pill — current technique, big */
@@ -716,6 +703,9 @@ body.instr-mode .sike-sub{display:none;}
 
 /* Scroll container */
 .sike-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 12px 32px;}
+#sike-rounds{display:flex;flex-direction:column;gap:8px;}
+body:not(.instr-mode) #sike-rounds{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;align-items:start;}
+.sike-belt-col{background:rgba(255,255,255,0.015);border:1px solid rgba(255,255,255,0.04);border-radius:12px;padding:6px;min-height:0;}
 
 /* Belt section header (chief only) */
 .sike-belt-hdr{
@@ -736,7 +726,7 @@ body.instr-mode .sike-sub{display:none;}
   overflow:hidden;
   transition:border-color .2s;
 }
-.sike-rcard.sr-current{border-color:rgba(245,197,24,0.35);background:rgba(245,197,24,0.04);}
+.sike-rcard.sr-current{border-color:rgba(245,197,24,0.7);background:rgba(245,197,24,0.11);box-shadow:0 0 0 1px rgba(245,197,24,0.25),0 0 20px rgba(245,197,24,0.12);}
 .sike-rcard.sr-done{opacity:0.28;}
 
 /* Card header — always visible, tap to collapse */
@@ -754,6 +744,8 @@ body.instr-mode .sike-sub{display:none;}
 }
 .sike-rcard-title{flex:1;min-width:0;}
 .sike-rcard-name{font-family:'Black Han Sans',sans-serif;font-size:16px;letter-spacing:1px;color:var(--text);line-height:1.2;}
+.sike-rcard.sr-current .sike-rcard-head{background:linear-gradient(90deg,rgba(245,197,24,.16),rgba(245,197,24,.03));}
+.sike-rcard.sr-current .sike-rcard-name{color:#F5C518 !important;text-shadow:0 0 10px rgba(245,197,24,.3);}
 .sike-rcard.sr-done .sike-rcard-name{color:rgba(245,240,232,0.5);}
 .sike-rcard-equip{
   font-family:'Black Han Sans',sans-serif;
@@ -989,7 +981,7 @@ audio{display:none;}
       <div class="chief-code-pill" id="c-code-pill" title="Session code — instructors enter this to join"></div>
       <div class="chief-pips" id="c-pips" style="flex:1;padding:0 6px;"></div>
       <div style="display:flex;gap:7px;align-items:center;">
-        <button class="sandbag-btn" onclick="triggerSandbag()" title="SANDBAGGING">🔥 SANDBAG</button>
+        <button class="hold-btn" onclick="triggerHold()" title="Abrupt hold for coaching">⏸ HOLD</button>
         <button class="cauldron-full-btn" onclick="openFullCauldron()" title="View full cauldron">📋</button>
         <button class="ccb sm" onclick="prevRound()" title="Prev Round">⏮</button>
         <button class="ccb sm" onclick="prevPhase()" title="Prev Step">◀</button>
@@ -1066,9 +1058,12 @@ audio{display:none;}
   <div class="sike-header">
     <div class="sike-rest">REST</div>
     <div class="sike-header-right">
-      <div class="sike-line">SIKE — YOU FUCKING THOUGHT!</div>
-      <div class="sike-sub">Chief will resume when you stop sandbagging</div>
-      <button class="sike-play" onclick="toggleRun()">▶ RESUME</button>
+      <div class="sike-line">COACH HOLD — CLASS PAUSED</div>
+      <div class="sike-sub">Use proceed to keep current time, or restart this move-set timer</div>
+      <div class="sike-actions">
+        <button class="sike-play" onclick="toggleRun()">▶ PROCEED</button>
+        <button class="sike-restart" onclick="restartCurrentMoveSet()">↺ RESTART TIMER</button>
+      </div>
     </div>
   </div>
   <div class="sike-stage" id="sike-stage">
@@ -1079,13 +1074,6 @@ audio{display:none;}
   <div class="sike-scroll" id="sike-scroll">
     <div id="sike-rounds"></div>
   </div>
-</div>
-
-<!-- SANDBAGGING OVERLAY -->
-<div id="sandbag-overlay">
-  <div class="sb-line1">ARE YOU<br>FUCKING SERIOUS?!</div>
-  <div class="sb-line2">GET AFTER IT RIGHT NOW</div>
-  <button class="sb-dismiss" onclick="dismissSandbag()">OK I'M BACK</button>
 </div>
 
 <!-- NEW ROUND MUSIC PROMPT (chief only) -->
@@ -1527,23 +1515,18 @@ restoreSession();
 // Music opt-in is handled inside pickChief only — not here
 
 // ═══════════════════════════════════════════════════
-//  MUSIC OPT-IN — shows on first app open (home screen)
+//  MUSIC OPT-IN (per chief session)
 // ═══════════════════════════════════════════════════
-let musicEnabled = localStorage.getItem('c_music_pref') !== 'false'; // default true
+let musicEnabled = true;
 
-function checkMusicOptIn(){
-  // Show opt-in on home screen if never answered
-  if(localStorage.getItem('c_music_pref') === null){
-    document.getElementById('music-optin').classList.remove('hidden');
-  }
-}
 function setMusicPref(yes){
   musicEnabled = yes;
-  localStorage.setItem('c_music_pref', yes ? 'true' : 'false');
   if(yes){
     showMusicBar();
     initMusicBar();
   } else {
+    const ap = document.getElementById('audio');
+    if(ap && !ap.paused) ap.pause();
     const mb = document.getElementById('music-bar');
     if(mb) mb.style.display = 'none';
   }
@@ -1554,45 +1537,26 @@ function setMusicPref(yes){
 // ═══════════════════════════════════════════════════
 //  SANDBAGGING
 // ═══════════════════════════════════════════════════
-function triggerSandbag(){
+function triggerHold(){
   if(!isChief) return;
-  // Stop timer
+  // Abrupt stop: timer + music pause at once, then show coaching hold screen
   if(running){ clearInterval(ticker); running=false; setPlayBtns(); }
-  // Stop music
-  if(musicEnabled){
-    const ap = document.getElementById('audio');
-    if(ap && !ap.paused){ ap.pause(); updateMusicBar(); }
-  }
-  // Instructors get normal SIKE pause screen (no sandbagging overlay on their phones)
-  populateSikeOverlay();
-  bcast({sike:true});
-  // Chief gets the sandbagging overlay + speech + blast
-  showSandbagOverlay();
-  speakSandbag();
-}
-function showSandbagOverlay(){
-  document.getElementById('sandbag-overlay').classList.add('show');
-}
-function dismissSandbag(){
-  document.getElementById('sandbag-overlay').classList.remove('show');
-  // After dismissing, show the normal sike/pause screen on chief too
+  const ap = document.getElementById('audio');
+  if(ap && !ap.paused){ ap.pause(); updateMusicBar(); }
   populateSikeOverlay();
   showSike();
+  bcast({sike:true});
 }
-function speakSandbag(){
-  try{
-    if(!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance('ARE YOU FUCKING SERIOUS?! GET AFTER IT RIGHT NOW!');
-    u.rate = 0.85; u.pitch = 0.7; u.volume = 1;
-    // Prefer a deeper voice if available
-    const voices = window.speechSynthesis.getVoices();
-    const deep = voices.find(v => /male/i.test(v.name) && /en/i.test(v.lang)) || voices.find(v => /en/i.test(v.lang));
-    if(deep) u.voice = deep;
-    window.speechSynthesis.speak(u);
-  }catch(e){}
-  // Also blast an airhorn-style beep
-  beep('sandbag');
+
+function restartCurrentMoveSet(){
+  if(!isChief) return;
+  clearInterval(ticker); running=false;
+  timeLeft = PT[phase];
+  setPlayBtns();
+  renderAll();
+  populateSikeOverlay();
+  showSike();
+  bcast({sike:true});
 }
 
 // ═══════════════════════════════════════════════════
@@ -1847,14 +1811,16 @@ function populateSikeOverlay(){
 
     BELTS.forEach(b => {
       const d = DATA[b];
-      // Belt section header
+      const col = document.createElement('div');
+      col.className = 'sike-belt-col';
       const hdr = document.createElement('div');
       hdr.className = 'sike-belt-hdr';
       hdr.style.color = d.color;
-      hdr.style.borderColor = d.color+'44';
+      hdr.style.borderColor = d.color+'55';
       hdr.innerHTML = `<span>${d.short}</span><span class="sike-belt-hdr-sub">${d.cauldron}</span>`;
-      roundsEl.appendChild(hdr);
-      buildSikeBelt(d, roundsEl, d.color);
+      col.appendChild(hdr);
+      buildSikeBelt(d, col, d.color);
+      roundsEl.appendChild(col);
     });
 
   } else {
@@ -1968,13 +1934,8 @@ function pickChief(){
   document.getElementById('sess-code').textContent=sessionCode;
   connectWS('chief');
   saveSession();
-  // If music pref not yet set, ask first — then go to session
-  if(localStorage.getItem('c_music_pref') === null){
-    go('s-music-pref');
-  } else {
-    if(musicEnabled){ showMusicBar(); initMusicBar(); }
-    go('s-session');
-  }
+  // Always ask the chief at the start of each new session.
+  go('s-music-pref');
 }
 
 function pickInstructor(belt){
@@ -2033,7 +1994,6 @@ function handleMsg(msg){
         msg.count+(msg.count===1?' instructor synced':' instructors synced'); break;
     case 'state': if(!isChief) applyState(msg); break;
     case 'music': if(!isChief) applyMusicState(msg); break;
-    case 'sandbag': if(!isChief){ showSandbagOverlay(); speakSandbag(); } break;
     case 'master_disconnected': if(!isChief) showBanner(true); break;
   }
 }
@@ -2142,6 +2102,8 @@ function play(){
 }
 function pause(){
   running=false; clearInterval(ticker); setPlayBtns();
+  const ap = document.getElementById('audio');
+  if(isChief && ap && !ap.paused){ ap.pause(); updateMusicBar(); }
   populateSikeOverlay();
   showSike(); bcast({sike:true});
 }
@@ -2680,10 +2642,6 @@ function beep(type){
         punch(c,f,.32,i*.2);
         tone(c,f*2,.22,'sine',0.4,i*.2);
       });
-    }else if(type==='sandbag'){
-      airhorn(c);
-      setTimeout(()=>{ const c2=getACtx(); if(c2) airhorn(c2); },450);
-      [0,.1,.2,.3].forEach((off,i)=>tone(c,1200-i*200,.18,'sawtooth',0.9,off,8));
     }
   }catch(e){}
 }
@@ -2948,7 +2906,10 @@ function musicPromptNo(){
   if(a && !a.paused){ a.pause(); updateMusicBar(); }
 }
 
-function showMusicBar(){ musicBar.classList.add('visible'); }
+function showMusicBar(){
+  musicBar.style.display = '';
+  musicBar.classList.add('visible');
+}
 
 function initMusicBar(){
   const t = library.find(t=>t.id===activeTrackId);
