@@ -662,7 +662,27 @@ body.instr-mode .mb-instr-play{display:flex;}
   box-shadow:0 0 16px rgba(183,28,28,0.4);
   transition:transform .1s,box-shadow .1s;
 }
-.hold-btn:active{transform:scale(0.93);box-shadow:0 0 30px rgba(183,28,28,0.7);}
+.sandbag-btn:active{transform:scale(0.93);box-shadow:0 0 30px rgba(183,28,28,0.7);}
+
+/* ═══════════════════════════════════
+   SANDBAGGING OVERLAY
+═══════════════════════════════════ */
+#sandbag-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  background:radial-gradient(circle at center, rgba(255,40,40,0.16), rgba(130,0,0,0.98));
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:150;opacity:0;pointer-events:none;transition:opacity .08s;
+  text-align:center;padding:24px;overflow:hidden;
+}
+#sandbag-overlay.show{opacity:1;pointer-events:all;animation:sb-flash .18s steps(1,end) infinite,sb-jolt .13s linear infinite;}
+.sb-line1{font-family:'Black Han Sans',sans-serif;font-size:clamp(32px,11vw,64px);letter-spacing:3px;color:#fff;line-height:1.04;text-shadow:0 0 18px rgba(255,0,0,.85),0 0 2px #000;animation:sbshake .12s linear infinite;}
+.sb-line2{font-family:'Black Han Sans',sans-serif;font-size:clamp(17px,5vw,30px);letter-spacing:2px;color:rgba(255,255,255,0.92);margin-top:10px;text-transform:uppercase;}
+.sb-line3{margin-top:10px;font-family:'Black Han Sans',sans-serif;font-size:clamp(14px,4.3vw,22px);letter-spacing:2px;color:#FFD740;text-transform:uppercase;}
+@keyframes sbshake{0%,100%{transform:translateX(0) scale(1);}25%{transform:translateX(-2px) scale(1.03);}50%{transform:translateX(2px) scale(1.05);}75%{transform:translateX(-1px) scale(1.02);}}
+@keyframes sb-flash{0%,100%{filter:contrast(1) saturate(1);}50%{filter:contrast(1.35) saturate(1.5) brightness(1.1);}}
+@keyframes sb-jolt{0%,100%{transform:translate(0,0);}25%{transform:translate(-2px,1px);}50%{transform:translate(2px,-1px);}75%{transform:translate(-1px,2px);}}
+.sb-dismiss{margin-top:26px;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.45);border-radius:12px;color:#fff;font-family:'Black Han Sans',sans-serif;font-size:14px;letter-spacing:2px;padding:12px 28px;cursor:pointer;box-shadow:0 0 16px rgba(255,0,0,.45);}
+.sb-dismiss:active{transform:scale(0.96);}
 
 /* ═══════════════════════════════════
    PAUSE OVERLAY — collapsible full cauldron
@@ -1074,6 +1094,14 @@ audio{display:none;}
   <div class="sike-scroll" id="sike-scroll">
     <div id="sike-rounds"></div>
   </div>
+</div>
+
+<!-- SANDBAGGING OVERLAY -->
+<div id="sandbag-overlay">
+  <div class="sb-line1">STOP SANDBAGGING<br>RIGHT NOW</div>
+  <div class="sb-line2">THIS ROUND IS NOT OPTIONAL</div>
+  <div class="sb-line3">MOVE WITH INTENT — OR YOU'RE HOLDING THE TEAM BACK</div>
+  <button class="sb-dismiss" onclick="dismissSandbag()">I'M BACK IN IT</button>
 </div>
 
 <!-- NEW ROUND MUSIC PROMPT (chief only) -->
@@ -1514,18 +1542,16 @@ if(location.hostname !== 'localhost' && !location.hostname.match(/^192\.168|^10\
 restoreSession();
 // Music opt-in is handled inside pickChief only — not here
 
-// ═══════════════════════════════════════════════════
 //  MUSIC OPT-IN (per chief session)
 // ═══════════════════════════════════════════════════
 let musicEnabled = true;
-
 function setMusicPref(yes){
   musicEnabled = yes;
   if(yes){
     showMusicBar();
     initMusicBar();
   } else {
-    const ap = document.getElementById('audio');
+   const ap = document.getElementById('audio');
     if(ap && !ap.paused) ap.pause();
     const mb = document.getElementById('music-bar');
     if(mb) mb.style.display = 'none';
@@ -1546,17 +1572,66 @@ function triggerHold(){
   populateSikeOverlay();
   showSike();
   bcast({sike:true});
+  // Chief gets the sandbagging overlay + speech + blast
+  showSandbagOverlay();
+  speakSandbag();
 }
+let sandbagRageTimer = null;
+let sandbagVoiceTimers = [];
 
-function restartCurrentMoveSet(){
-  if(!isChief) return;
-  clearInterval(ticker); running=false;
-  timeLeft = PT[phase];
-  setPlayBtns();
-  renderAll();
+function showSandbagOverlay(){
+  const ov = document.getElementById('sandbag-overlay');
+  if(!ov) return;
+  ov.classList.remove('show');
+  void ov.offsetWidth; // restart abrupt animation every trigger
+  ov.classList.add('show');
+}
+function dismissSandbag(){
+  const ov = document.getElementById('sandbag-overlay');
+  if(ov) ov.classList.remove('show');
+  clearInterval(sandbagRageTimer);
+  sandbagRageTimer = null;
+  sandbagVoiceTimers.forEach(t=>clearTimeout(t));
+  sandbagVoiceTimers = [];
+  try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){}
+  // After dismissing, show the normal sike/pause screen on chief too
   populateSikeOverlay();
   showSike();
-  bcast({sike:true});
+}
+function speakSandbag(){
+  clearInterval(sandbagRageTimer);
+  sandbagVoiceTimers.forEach(t=>clearTimeout(t));
+  sandbagVoiceTimers = [];
+
+  // Immediate blast + periodic repeat until dismissed
+  beep('sandbag');
+  sandbagRageTimer = setInterval(()=>beep('sandbag'), 1300);
+
+  // Haptic aggression for devices that support vibration
+  try{ if(navigator.vibrate) navigator.vibrate([120,60,120,60,240]); }catch(e){}
+
+  // Voice callouts in short bursts to make it unmistakable
+  const phrases = [
+    'Stop sandbagging. Move now.',
+    'You are holding the team back. Push harder now.',
+    'No coasting. Attack this round.'
+  ];
+  try{
+    if(window.speechSynthesis){
+      window.speechSynthesis.cancel();
+      const voices = window.speechSynthesis.getVoices();
+      const voice = voices.find(v => /en/i.test(v.lang));
+      phrases.forEach((text, i)=>{
+        const timer = setTimeout(()=>{
+          const u = new SpeechSynthesisUtterance(text);
+          u.rate = 0.93; u.pitch = 0.58; u.volume = 1;
+          if(voice) u.voice = voice;
+          window.speechSynthesis.speak(u);
+        }, i*950);
+        sandbagVoiceTimers.push(timer);
+      });
+    }
+  }catch(e){}
 }
 
 // ═══════════════════════════════════════════════════
@@ -1874,6 +1949,12 @@ function goHome(){
   // Stop music
   const ap=document.getElementById('audio');
   if(ap&&!ap.paused){ ap.pause(); }
+  // Stop any active sandbag alert loop
+  clearInterval(sandbagRageTimer);
+  sandbagRageTimer = null;
+  sandbagVoiceTimers.forEach(t=>clearTimeout(t));
+  sandbagVoiceTimers = [];
+  try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){}
   // Go to home screen
   document.body.classList.remove('instr-mode');
   go('s-home');
@@ -1934,7 +2015,7 @@ function pickChief(){
   document.getElementById('sess-code').textContent=sessionCode;
   connectWS('chief');
   saveSession();
-  // Always ask the chief at the start of each new session.
+ // Always ask the chief at the start of each new session.
   go('s-music-pref');
 }
 
@@ -2642,6 +2723,13 @@ function beep(type){
         punch(c,f,.32,i*.2);
         tone(c,f*2,.22,'sine',0.4,i*.2);
       });
+    }else if(type==='sandbag'){
+      // Max aggression: stacked horns + harsh siren stabs
+      airhorn(c);
+      setTimeout(()=>{ const c2=getACtx(); if(c2) airhorn(c2); },300);
+      setTimeout(()=>{ const c3=getACtx(); if(c3) airhorn(c3); },650);
+      [0,.08,.16,.24,.32,.40].forEach((off,i)=>tone(c,1800-i*180,.12,'square',1.1,off,10));
+      [0,.12,.24,.36].forEach((off)=>tone(c,7000,.055,'sine',0.45,off,2));
     }
   }catch(e){}
 }
