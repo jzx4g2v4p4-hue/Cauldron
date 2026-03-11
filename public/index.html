@@ -902,6 +902,7 @@ audio{display:none;}
     <span class="logo-sub">American Drenger Defense System</span>
     <button onclick="openHelp()" style="margin-top:8px;background:var(--surface2);border:1px solid rgba(255,255,255,0.1);color:var(--muted);border-radius:20px;padding:5px 16px;font-family:'Black Han Sans',sans-serif;font-size:11px;letter-spacing:2px;cursor:pointer;">? HOW IT WORKS</button>
     <button onclick="openCauldronRef()" style="margin-top:6px;background:rgba(245,197,24,0.07);border:1px solid rgba(245,197,24,0.2);color:#F5C518;border-radius:20px;padding:5px 16px;font-family:'Black Han Sans',sans-serif;font-size:11px;letter-spacing:2px;cursor:pointer;">📚 CAULDRON DATABASE</button>
+    <button onclick="openMusicModal()" style="margin-top:6px;background:rgba(30,136,229,0.08);border:1px solid rgba(30,136,229,0.35);color:#6FB6FF;border-radius:20px;padding:5px 16px;font-family:'Black Han Sans',sans-serif;font-size:11px;letter-spacing:2px;cursor:pointer;">🎵 MUSIC LIBRARY</button>
   </div>
 
   <!-- Server IP — only needed for local WiFi mode, hidden on hosted deploy -->
@@ -1006,6 +1007,11 @@ audio{display:none;}
     <div style="display:flex;align-items:center;gap:8px;padding:4px 14px 2px;flex-shrink:0;">
       <div class="chief-phases" id="c-phases" style="flex:1;padding:0;"></div>
       <div style="font-family:'Black Han Sans',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);" id="c-rnd">RND 1/8</div>
+    </div>
+    <div class="chief-stage">
+      <div class="chief-stage-lbl">CURRENT STAGE</div>
+      <div class="chief-stage-name" id="c-stage-name">ROUND 1 / 8</div>
+      <div class="chief-stage-detail" id="c-stage-detail">60S — TECHNIQUE OVERVIEW</div>
     </div>
 
      <div class="chief-stage">
@@ -2002,9 +2008,11 @@ function handleMsg(msg){
 }
 
 function applyState(s){
+  const prevRound = round;
   round=s.round; phase=s.phase; timeLeft=s.timeLeft; running=s.running;
   if(s.sike){ populateSikeOverlay(); showSike(); } else hideSike();
   if(s.done) showDone();
+  if(round>prevRound && phase===0){ beep('roundBell'); strongVibrate([300,120,300,120,460]); }
   renderInstr();
 }
 
@@ -2021,7 +2029,6 @@ function hideBanner(){showBanner(false);}
 // ═══════════════════════════════════════════════════
 function startChief(){
   round=0; phase=0; timeLeft=PT[0]; running=false;
-  buildChiefPanels();
   buildChiefPhases();
   buildChiefPips();
   renderChief();
@@ -2074,7 +2081,7 @@ function initInstrScreen(){
 // ═══════════════════════════════════════════════════
 const HYPES=[
   'ALRIGHT MOTHERFUCKERS —\nYOU BETTER <span class="hl">GET AFTER IT!</span>',
-  'LOCK IN.\n<span class="hl">NO SANDBAGGING.</span>',
+  'LOCK IN.\n<span class="hl">WORK WITH INTENT.</span>',
   'EYES UP.\n<span class="hl">WORK STARTS NOW.</span>',
   'LET\'S GO.\n<span class="hl">EARN IT.</span>'
 ];
@@ -2119,6 +2126,10 @@ function setPlayBtns(){
   });
 }
 
+function strongVibrate(pattern=[260,100,260,100,360]){
+  try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
+}
+
 function tick(){
   timeLeft--;
   if(timeLeft===3) beep('warn');
@@ -2130,7 +2141,7 @@ function tick(){
     } else {
       if(round<TOTAL_ROUNDS-1){
         round++; phase=0; timeLeft=PT[0];
-        flashRound(); beep('newRound');
+        flashRound(); beep('roundBell'); strongVibrate([300,120,300,120,460]);
         // Ask chief if they want music for the new round
         if(isChief && musicEnabled) showMusicRoundPrompt();
       } else {
@@ -2162,7 +2173,64 @@ function renderChief(){
    renderChiefStage();
   renderChiefPhases();
   renderChiefPips();
-  renderPanels();
+  renderChiefLiveCauldron();
+}
+
+function renderChiefStage(){
+  const nameEl = document.getElementById('c-stage-name');
+  const detailEl = document.getElementById('c-stage-detail');
+  if(!nameEl || !detailEl) return;
+  const phaseLabel = phase===0 ? '60S — TECHNIQUE OVERVIEW' : `30S — STEP ${phase} OF 4`;
+  nameEl.textContent = `ROUND ${round+1} / ${TOTAL_ROUNDS}`;
+  nameEl.style.color = '#F5C518';
+  detailEl.textContent = phaseLabel;
+}
+
+function renderChiefLiveCauldron(){
+  const roundsEl = document.getElementById('chief-live-rounds');
+  if(!roundsEl) return;
+  roundsEl.innerHTML = '';
+
+  BELTS.forEach(b => {
+    const d = DATA[b];
+    const col = document.createElement('div');
+    col.className = 'sike-belt-col';
+
+    const hdr = document.createElement('div');
+    hdr.className = 'sike-belt-hdr';
+    hdr.style.color = d.color;
+    hdr.style.borderColor = d.color+'55';
+    hdr.innerHTML = `<span>${d.short}</span><span class="sike-belt-hdr-sub">${d.cauldron}</span>`;
+    col.appendChild(hdr);
+
+    let prevEquip = null;
+    d.rounds.forEach((r2, ri) => {
+      if(prevEquip !== null && r2.equip !== prevEquip){
+        const banner = document.createElement('div');
+        banner.className = 'sike-equip-change';
+        banner.innerHTML = `<div class="sike-equip-change-icon">⚠️</div><div class="sike-equip-change-text">${r2.equip ? 'GET '+r2.equip : 'PUT DOWN EQUIPMENT'}</div>`;
+        col.appendChild(banner);
+      }
+      prevEquip = r2.equip;
+
+      const isCurrent = ri === round;
+      const isDone = ri < round;
+      const card = document.createElement('div');
+      card.className = `sike-rcard expanded${isCurrent?' sr-current':''}${isDone?' sr-done':''}`;
+      card.style.borderColor = isCurrent ? d.color+'B3' : d.color+'33';
+
+      const stepsHtml = r2.steps.map((st, si)=>{
+        const p = si+1;
+        const active = isCurrent && phase===p;
+        const done = isDone || (isCurrent && phase>p);
+        return `<div class="sike-rstep${active?' sr-active':''}" style="opacity:${done?0.35:1}"><div class="sike-rstep-n" style="color:${active?d.color:'rgba(245,240,232,0.35)'}">${p}</div><div><div class="sike-rstep-combo">${st.combo}</div>${st.note?`<div class="sike-rstep-note">${st.note}</div>`:''}</div></div>`;
+      }).join('');
+
+      card.innerHTML = `<div class="sike-rcard-head"><div class="sike-rcard-num" style="color:${isDone?'rgba(245,240,232,0.3)':isCurrent?d.color:'rgba(245,240,232,0.45)'}">${isDone?'✓':ri+1}</div><div class="sike-rcard-title"><div class="sike-rcard-name" style="${isCurrent?'color:'+d.color:''}">${r2.name}</div>${r2.equip?`<div class="sike-rcard-equip">${r2.equip}</div>`:''}</div></div>${r2.sub?`<div class="sike-rcard-sub">${r2.sub}</div>`:''}<div class="sike-rcard-steps">${stepsHtml}</div>`;
+      col.appendChild(card);
+    });
+    roundsEl.appendChild(col);
+  });
 }
    
 function renderChiefStage(){
@@ -2656,8 +2724,8 @@ function beep(type){
     }else if(type==='step'){
       // PIERCING BELL — loud and sharp so everyone in the gym hears it
       bell(c);
-    }else if(type==='newRound'){
-      airhorn(c); // REAL AIRHORN between rounds
+    }else if(type==='newRound' || type==='roundBell'){
+      roundBell(c);
     }else if(type==='hype'){
       tone(c,660,.18,'square',0.9,0,2);
       tone(c,1320,.14,'sine',0.5,0);
@@ -2704,6 +2772,44 @@ function bell(c){
       ng.gain.setValueAtTime(1.8, now + startOff);
       ns.start(now + startOff);
     });
+  }catch(e){}
+}
+
+function roundBell(c){
+  try{
+    const now = c.currentTime;
+    const comp = c.createDynamicsCompressor();
+    comp.threshold.value = -28; comp.knee.value = 0;
+    comp.ratio.value = 20; comp.attack.value = 0.0003; comp.release.value = 0.06;
+    comp.connect(c.destination);
+
+    [[1850,1.9],[2775,1.2],[3700,0.9],[925,1.1],[5550,0.55]].forEach(([f,v],i)=>{
+      const o=c.createOscillator(), g=c.createGain();
+      o.type='square'; o.frequency.value=f;
+      o.connect(g); g.connect(comp);
+      g.gain.setValueAtTime(0,now+i*0.01);
+      g.gain.linearRampToValueAtTime(v,now+0.008+i*0.01);
+      g.gain.exponentialRampToValueAtTime(0.001,now+0.42+i*0.01);
+      o.start(now+i*0.01); o.stop(now+0.45+i*0.01);
+    });
+
+    const len = Math.floor(c.sampleRate*0.06);
+    const buf = c.createBuffer(1,len,c.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len);
+    const ns=c.createBufferSource(), ng=c.createGain(), hp=c.createBiquadFilter();
+    hp.type='highpass'; hp.frequency.value=3200;
+    ns.buffer=buf; ns.connect(hp); hp.connect(ng); ng.connect(comp);
+    ng.gain.setValueAtTime(2.3,now);
+    ng.gain.exponentialRampToValueAtTime(0.001,now+0.08);
+    ns.start(now);
+
+    const ap = document.getElementById('audio');
+    if(isChief && ap && !ap.paused){
+      const oldVol = ap.volume;
+      ap.volume = Math.max(0.12, oldVol*0.25);
+      setTimeout(()=>{ ap.volume = oldVol; }, 420);
+    }
   }catch(e){}
 }
 
