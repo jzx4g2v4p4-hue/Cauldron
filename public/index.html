@@ -188,12 +188,11 @@ body{
 /* 5 belts portrait: 2 cols, 3 rows — last panel spans full width */
 .panels.belts-5{
   grid-template-columns:1fr 1fr;
-  grid-auto-rows:minmax(100px,1fr);
-  overflow-y:auto;
+  grid-auto-rows:minmax(0,1fr);
+  overflow:hidden;
 }
 .panels.belts-5 .panel:last-child{
   grid-column:1/-1;
-  max-height:210px;
 }
 @media (orientation:landscape){
   .panels{grid-template-columns:repeat(4,1fr);grid-auto-rows:minmax(0,1fr);overflow:hidden;}
@@ -277,7 +276,7 @@ body{
 }
 
 /* Steps in panel */
-.panel-steps{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:2px;padding:3px 7px 6px;min-height:0;}
+.panel-steps{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:2px;padding:3px 7px 6px;min-height:0;}
 .pstep{
   display:flex;align-items:flex-start;gap:6px;padding:5px 7px;
   border-radius:7px;border-left:2px solid transparent;
@@ -1526,24 +1525,17 @@ if(location.hostname !== 'localhost' && !location.hostname.match(/^192\.168|^10\
 restoreSession();
 // Music opt-in is handled inside pickChief only — not here
 
+//  MUSIC OPT-IN (per chief session)
 // ═══════════════════════════════════════════════════
-//  MUSIC OPT-IN — shows on first app open (home screen)
-// ═══════════════════════════════════════════════════
-let musicEnabled = localStorage.getItem('c_music_pref') !== 'false'; // default true
-
-function checkMusicOptIn(){
-  // Show opt-in on home screen if never answered
-  if(localStorage.getItem('c_music_pref') === null){
-    document.getElementById('music-optin').classList.remove('hidden');
-  }
-}
+let musicEnabled = true;
 function setMusicPref(yes){
   musicEnabled = yes;
-  localStorage.setItem('c_music_pref', yes ? 'true' : 'false');
   if(yes){
     showMusicBar();
     initMusicBar();
   } else {
+   const ap = document.getElementById('audio');
+    if(ap && !ap.paused) ap.pause();
     const mb = document.getElementById('music-bar');
     if(mb) mb.style.display = 'none';
   }
@@ -1968,13 +1960,8 @@ function pickChief(){
   document.getElementById('sess-code').textContent=sessionCode;
   connectWS('chief');
   saveSession();
-  // If music pref not yet set, ask first — then go to session
-  if(localStorage.getItem('c_music_pref') === null){
-    go('s-music-pref');
-  } else {
-    if(musicEnabled){ showMusicBar(); initMusicBar(); }
-    go('s-session');
-  }
+ // Always ask the chief at the start of each new session.
+  go('s-music-pref');
 }
 
 function pickInstructor(belt){
@@ -2948,7 +2935,10 @@ function musicPromptNo(){
   if(a && !a.paused){ a.pause(); updateMusicBar(); }
 }
 
-function showMusicBar(){ musicBar.classList.add('visible'); }
+function showMusicBar(){
+  musicBar.style.display = '';
+  musicBar.classList.add('visible');
+}
 
 function initMusicBar(){
   const t = library.find(t=>t.id===activeTrackId);
