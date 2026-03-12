@@ -662,17 +662,21 @@ body.instr-mode .mb-instr-play{display:flex;}
    COACH HOLD BUTTON
 ═══════════════════════════════════ */
 .hold-btn{
-  width:58px;height:58px;padding:0;
-  border:none;border-radius:50%;
+  min-width:92px;height:58px;padding:0 18px;
+  border:1px solid rgba(255,120,120,0.7);border-radius:10px;
   background:radial-gradient(circle at 35% 28%,#ff6b6b 0%,#f44336 45%,#8B0000 100%);
   color:#fff;font-family:'Black Han Sans',sans-serif;font-weight:900;
-  font-size:15px;letter-spacing:2px;line-height:1;
+  font-size:28px;letter-spacing:3px;line-height:1;
   cursor:pointer;flex-shrink:0;text-transform:uppercase;
   text-shadow:0 0 10px rgba(0,0,0,0.6);
-  box-shadow:0 0 0 1px rgba(255,120,120,0.5),0 0 22px rgba(255,0,0,0.5),inset 0 -6px 12px rgba(0,0,0,0.35);
+  box-shadow:0 0 0 1px rgba(255,120,120,0.5),0 0 24px rgba(255,0,0,0.65),inset 0 -6px 12px rgba(0,0,0,0.35);
   transition:transform .1s,box-shadow .1s,filter .1s;
 }
 .hold-btn:active{transform:scale(0.93);box-shadow:0 0 0 1px rgba(255,140,140,0.65),0 0 34px rgba(255,0,0,0.85),inset 0 -6px 12px rgba(0,0,0,0.4);filter:brightness(1.08);}
+
+/* Chief live full-cauldron view mirrors pause overlay layout */
+.chief-live-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 12px 24px;min-height:0;}
+#chief-live-rounds{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;align-items:start;}
 
 /* ═══════════════════════════════════
    PAUSE OVERLAY — collapsible full cauldron
@@ -2581,6 +2585,7 @@ function nextRound(){
   if(!isChief||round>=TOTAL_ROUNDS-1) return;
   clearInterval(ticker); running=false;
   round++; phase=0; timeLeft=PT[0];
+  beep('roundBell');
   hideSike(); setPlayBtns(); renderAll(); bcast();
 }
 function prevPhase(){
@@ -2593,8 +2598,8 @@ function prevPhase(){
 function nextPhase(){
   if(!isChief) return;
   clearInterval(ticker); running=false;
-  if(phase<4){ phase++; timeLeft=PT[phase]; }
-  else if(round<TOTAL_ROUNDS-1){ round++; phase=0; timeLeft=PT[0]; }
+  if(phase<4){ phase++; timeLeft=PT[phase]; beep('step'); }
+  else if(round<TOTAL_ROUNDS-1){ round++; phase=0; timeLeft=PT[0]; beep('roundBell'); }
   hideSike(); setPlayBtns(); renderAll(); bcast();
 }
 function jumpToRound(r){
@@ -2879,6 +2884,9 @@ let library       = JSON.parse(localStorage.getItem('c_lib') || '[]');
 let activeTrackId = localStorage.getItem('c_active') || (library[0]?.id || null);
 let previewId     = null;
 let shuffleOn     = false;
+let sunoPlaylistURL = localStorage.getItem('c_suno_playlist_url') || '';
+let sunoPlaylistAuto = localStorage.getItem('c_suno_playlist_auto') !== '0';
+let sunoSyncTimer = null;
 let musicSetupPressTimer;
 let progressTimer = null;
 
@@ -2892,6 +2900,68 @@ const musicModal = document.getElementById('music-modal');
 
 function saveLib(){ localStorage.setItem('c_lib', JSON.stringify(library)); }
 function saveActive(){ localStorage.setItem('c_active', activeTrackId||''); }
+function saveSunoSyncPrefs(){
+  localStorage.setItem('c_suno_playlist_url', sunoPlaylistURL || '');
+  localStorage.setItem('c_suno_playlist_auto', sunoPlaylistAuto ? '1' : '0');
+}
+
+function mergePlaylistTracks(tracks){
+  let added = 0;
+  tracks.forEach((t, idx) => {
+    const name = (t?.name || '').trim();
+    const rawUrl = (t?.url || '').trim();
+    const url = sunoUrlToCDN(rawUrl);
+    if(!url.startsWith('http')) return;
+    if(library.find(x=>x.url===url)) return;
+    const id = `sp${Date.now()}-${idx}-${Math.random().toString(36).slice(2,6)}`;
+    library.push({ id, name: name || `Suno Track ${library.length+1}`, url });
+    added++;
+  });
+  if(added){
+    saveLib();
+    if(!activeTrackId && library[0]){
+      activeTrackId = library[0].id;
+      saveActive();
+    }
+    initMusicBar();
+    renderLibList();
+    const lbl = document.querySelector('.lib-section-lbl');
+    if(lbl) lbl.textContent = `${library.length} TRACK${library.length!==1?'S':''} — TAP TO SELECT`;
+  }
+  return added;
+}
+
+async function syncSunoPlaylist(manual=false){
+  if(!sunoPlaylistURL) return;
+  try{
+    const res = await fetch(`/api/suno/playlist?url=${encodeURIComponent(sunoPlaylistURL)}`);
+    const data = await res.json();
+    if(!res.ok) throw new Error(data?.error || data?.detail || 'Sync failed');
+    const added = mergePlaylistTracks(Array.isArray(data.tracks) ? data.tracks : []);
+    if(manual){
+      showLibMsg(added ? `Playlist synced — ${added} new track${added!==1?'s':''} added.` : 'Playlist synced — no new tracks yet.', added ? 'ok' : 'warn');
+    }
+    const stat = document.getElementById('lib-sync-status');
+    if(stat){
+      stat.textContent = `Auto-sync on • Last check: ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+      stat.style.color = 'rgba(245,240,232,0.75)';
+    }
+  }catch(e){
+    if(manual) showLibMsg(`Playlist sync failed: ${e?.message || 'unknown error'}`, 'warn');
+    const stat = document.getElementById('lib-sync-status');
+    if(stat){
+      stat.textContent = `Sync error: ${e?.message || 'unknown error'}`;
+      stat.style.color = '#FF8A80';
+    }
+  }
+}
+
+function setupSunoAutoSync(){
+  clearInterval(sunoSyncTimer);
+  if(!sunoPlaylistAuto || !sunoPlaylistURL) return;
+  syncSunoPlaylist(false);
+  sunoSyncTimer = setInterval(()=>syncSunoPlaylist(false), 5*60*1000);
+}
 
 // ════════════════════════════════════════════════════
 //  WINDOW-LEVEL AUDIO HANDLERS
@@ -3148,6 +3218,7 @@ function dismissPWA(){
   if(b) b.style.display = 'none';
 }
 setTimeout(showPWABanner, 6000);
+setupSunoAutoSync();
 
 // ── Modal ─────────────────────────────────────────────
 const mbSetupBtn = document.getElementById('mb-setup');
@@ -3156,7 +3227,7 @@ mbSetupBtn.addEventListener('pointerup',  ()=> clearTimeout(musicSetupPressTimer
 mbSetupBtn.addEventListener('click',      ()=> openMusicModal());
 musicModal.addEventListener('click',e=>{ if(e.target===musicModal) closeMusicModal(); });
 
-function openMusicModal(){ renderLibModal(); musicModal.classList.add('open'); }
+function openMusicModal(){ renderLibModal(); setupSunoAutoSync(); musicModal.classList.add('open'); }
 function closeMusicModal(){ musicModal.classList.remove('open'); previewId=null; }
 
 function renderLibModal(){
@@ -3174,6 +3245,22 @@ function renderLibModal(){
       <div style="margin-top:6px;color:rgba(245,240,232,0.5);font-size:11px;">⚠ CDN links (cdn1.suno.ai) can expire. If a track stops working, delete it and re-add using a fresh link.</div>
     </div>
 
+    <div style="background:rgba(30,136,229,0.08);border:1px solid rgba(30,136,229,0.3);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:11px;letter-spacing:2px;color:#6FB6FF;margin-bottom:8px;">SUNO PLAYLIST AUTO-SYNC</div>
+      <div class="lib-add-row">
+        <input class="lib-input" id="li-playlist" placeholder="https://suno.com/playlist/..." value="${escHtml(sunoPlaylistURL)}">
+        <button class="lib-add-btn" onclick="savePlaylistSyncURL()">SAVE</button>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:1px;color:var(--muted);cursor:pointer;">
+          <input type="checkbox" id="li-playlist-auto" ${sunoPlaylistAuto?'checked':''} onchange="togglePlaylistAutoSync(this.checked)">
+          Auto-sync every 5 min
+        </label>
+        <button class="lib-add-btn" style="padding:8px 12px;font-size:11px;" onclick="syncSunoPlaylist(true)">SYNC NOW</button>
+      </div>
+      <div id="lib-sync-status" style="margin-top:7px;font-size:10px;letter-spacing:1px;color:rgba(245,240,232,0.55);">${sunoPlaylistURL ? 'Ready to sync playlist' : 'Add a playlist URL to enable auto-sync'}</div>
+    </div>
+
     <div class="lib-add">
       <div class="lib-add-row">
         <input class="lib-input" id="li-name" placeholder="Track name  (e.g. FIGHT NIGHT)">
@@ -3187,6 +3274,23 @@ function renderLibModal(){
     <div class="lib-section-lbl">${library.length} TRACK${library.length!==1?'S':''} — TAP TO SELECT</div>
     <div class="lib-list" id="lib-list"></div>`;
   renderLibList();
+}
+
+function savePlaylistSyncURL(){
+  const input = document.getElementById('li-playlist');
+  sunoPlaylistURL = (input?.value || '').trim();
+  saveSunoSyncPrefs();
+  setupSunoAutoSync();
+  showLibMsg(sunoPlaylistURL ? 'Playlist URL saved.' : 'Playlist URL cleared.', 'ok');
+  const stat = document.getElementById('lib-sync-status');
+  if(stat) stat.textContent = sunoPlaylistURL ? 'Ready to sync playlist' : 'Add a playlist URL to enable auto-sync';
+}
+
+function togglePlaylistAutoSync(on){
+  sunoPlaylistAuto = !!on;
+  saveSunoSyncPrefs();
+  setupSunoAutoSync();
+  showLibMsg(sunoPlaylistAuto ? 'Auto-sync enabled (every 5 min).' : 'Auto-sync paused.', 'ok');
 }
 
 function renderLibList(){

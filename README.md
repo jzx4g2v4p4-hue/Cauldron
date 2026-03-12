@@ -57,6 +57,7 @@ You'll see output like:
 3. Paste your Suno **direct audio URL** for each belt
 4. Tap **SAVE TRACKS** — URLs are remembered on that device
 5. Music plays locally on each device (each person pastes their own URLs)
+6. Optional: in the Music Library, paste your **Suno playlist URL** and enable auto-sync (checks every 5 minutes while app is open)
 
 **To get a Suno direct audio URL:**
 - Open your track on suno.com
