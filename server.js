@@ -19,6 +19,120 @@ const wss = new WebSocket.Server({ server });
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
+
+function extractSunoPlaylistId(raw = '') {
+  const input = String(raw || '').trim();
+  if (!input) return null;
+  const uuidMatch = input.match(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i);
+  if (uuidMatch) return uuidMatch[0];
+  try {
+    const u = new URL(input.startsWith('http') ? input : `https://${input}`);
+    const parts = u.pathname.split('/').filter(Boolean);
+    const idx = parts.findIndex((p) => p === 'playlist' || p === 'playlists' || p === 'p');
+    if (idx >= 0 && parts[idx + 1]) return parts[idx + 1];
+  } catch {}
+  return null;
+}
+
+function parseSunoTracks(payload) {
+  const buckets = [
+    payload?.clips,
+    payload?.tracks,
+    payload?.songs,
+    payload?.items,
+    payload?.data?.clips,
+    payload?.data?.tracks,
+    payload?.data?.songs,
+    payload?.data?.items,
+    payload?.playlist?.clips,
+    payload?.playlist?.tracks,
+    payload?.playlist?.songs,
+    payload?.playlist?.items,
+    payload?.results,
+  ].filter(Array.isArray);
+
+  const out = [];
+  const seen = new Set();
+  for (const arr of buckets) {
+    for (const t of arr) {
+      const rawUrl = t?.audio_url || t?.audioUrl || t?.stream_url || t?.streamUrl || t?.url;
+      const title = t?.title || t?.name || t?.display_name || t?.song_name;
+      if (!rawUrl || typeof rawUrl !== 'string') continue;
+      let url = rawUrl.trim();
+      if (!/^https?:\/\//i.test(url)) continue;
+      if (url.includes('suno.com/song/') || url.includes('suno.ai/song/')) {
+        const m = url.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+        if (m) url = `https://cdn1.suno.ai/${m[1]}.mp3`;
+      }
+      if (seen.has(url)) continue;
+      seen.add(url);
+      out.push({
+        name: (typeof title === 'string' && title.trim()) ? title.trim() : 'Untitled Suno Track',
+        url,
+      });
+    }
+  }
+  return out;
+}
+
+async function fetchJsonMaybe(url) {
+  const res = await fetch(url, {
+    headers: {
+      'user-agent': 'Mozilla/5.0 (Cauldron Playlist Sync)',
+      'accept': 'application/json,text/plain,*/*',
+      'referer': 'https://suno.com/',
+    },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const txt = await res.text();
+  try { return JSON.parse(txt); } catch { throw new Error('Invalid JSON'); }
+}
+
+async function fetchPlaylistTracks(playlistId) {
+  const candidates = [
+    `https://studio-api.suno.ai/api/playlist/${playlistId}`,
+    `https://studio-api.suno.ai/api/playlist/${playlistId}?page=1`,
+    `https://suno.com/api/playlist/${playlistId}`,
+    `https://suno.com/api/playlists/${playlistId}`,
+  ];
+
+  for (const endpoint of candidates) {
+    try {
+      const data = await fetchJsonMaybe(endpoint);
+      const tracks = parseSunoTracks(data);
+      if (tracks.length) return { tracks, source: endpoint };
+    } catch {}
+  }
+
+  throw new Error('Unable to read tracks from Suno playlist endpoint');
+}
+
+
+
+app.get('/api/suno/playlist', async (req, res) => {
+  const playlistUrl = String(req.query.url || '').trim();
+  const playlistId = extractSunoPlaylistId(playlistUrl);
+  if (!playlistId) {
+    res.status(400).json({ error: 'Provide a valid Suno playlist URL or ID.' });
+    return;
+  }
+
+  try {
+    const { tracks, source } = await fetchPlaylistTracks(playlistId);
+    res.json({
+      playlistId,
+      fetchedFrom: source,
+      count: tracks.length,
+      tracks,
+    });
+  } catch (err) {
+    res.status(502).json({
+      error: 'Could not fetch this Suno playlist right now.',
+      detail: err?.message || 'Unknown error',
+    });
+  }
+});
+
 // ── Session store ──────────────────────────────────────────────
 // sessions[code] = { master: ws, students: Set<ws>, state: {} }
 const sessions = {};
