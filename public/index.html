@@ -70,6 +70,30 @@ body{
 .rc-desc{font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:3px;}
 .rc-cauldron{font-size:10px;letter-spacing:2px;margin-top:5px;opacity:0.7;font-family:'Black Han Sans',sans-serif;}
 
+/* Belt selector (for instructors) */
+.belt-section{width:100%;max-width:400px;}
+.belt-section-lbl{font-size:10px;letter-spacing:4px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;text-align:center;}
+.belt-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%;}
+.bc{border-radius:12px;padding:14px 8px;cursor:pointer;border:1px solid transparent;transition:transform .1s;text-align:center;}
+.bc:active{transform:scale(0.93);}
+.bc-y{background:var(--yellow-bg);border-color:rgba(245,197,24,0.2);}
+.bc-o{background:var(--orange-bg);border-color:rgba(232,103,26,0.2);}
+.bc-g{background:var(--green-bg);border-color:rgba(76,175,80,0.2);}
+.bc-b{background:var(--blue-bg);border-color:rgba(30,136,229,0.2);}
+.bc-br{background:var(--brown-bg);border-color:rgba(141,110,99,0.2);}
+.bc-dot{width:7px;height:7px;border-radius:50%;margin:0 auto 6px;}
+.bc-y .bc-dot{background:var(--yellow);box-shadow:0 0 7px var(--yellow);}
+.bc-o .bc-dot{background:var(--orange);box-shadow:0 0 7px var(--orange);}
+.bc-g .bc-dot{background:var(--green);box-shadow:0 0 7px var(--green);}
+.bc-b .bc-dot{background:var(--blue);box-shadow:0 0 7px var(--blue);}
+.bc-br .bc-dot{background:var(--brown);box-shadow:0 0 7px var(--brown);}
+.bc-lbl{font-family:'Black Han Sans',sans-serif;font-size:13px;letter-spacing:1px;}
+.bc-y .bc-lbl{color:var(--yellow);}
+.bc-o .bc-lbl{color:var(--orange);}
+.bc-g .bc-lbl{color:var(--green);}
+.bc-b .bc-lbl{color:var(--blue);}
+.bc-br .bc-lbl{color:var(--brown);}
+
 /* ═══════════════════════════════════
    SESSION / JOIN
 ═══════════════════════════════════ */
@@ -143,7 +167,7 @@ body{
 .chief-stage-name{font-family:'Black Han Sans',sans-serif;font-size:clamp(24px,5.2vw,42px);letter-spacing:2px;line-height:1.05;margin-top:3px;color:#F5C518;}
 .chief-stage-detail{font-family:'Black Han Sans',sans-serif;font-size:12px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-top:4px;}
 
-   /* Round pips */
+/* Round pips */
 .chief-pips{display:flex;gap:3px;padding:0 14px 5px;flex-shrink:0;}
 .cpip{height:3px;flex:1;border-radius:2px;background:rgba(255,255,255,0.07);transition:background .3s;}
 .cpip.done{background:#F5C518;opacity:.4;}
@@ -1247,6 +1271,8 @@ audio{display:none;}
 
 <!-- Fallback HTML element just in case WebAudio sandbox fails on the WAV -->
 <audio id="custom-bell-audio" src="heavy_gym_bell_8.wav" preload="auto"></audio>
+<audio id="wtf-audio-time" src="time.mp3" preload="auto"></audio>
+<audio id="wtf-audio-fuck" src="what%20the%20fuck.mp3" preload="auto"></audio>
 
 <video id="ios-wake" playsinline muted loop>
   <source src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb20AAAIEbW9vdgAAAGxtdmhkAAAAAA==">
@@ -1550,12 +1576,42 @@ function setMusicPref(yes){
 // ═══════════════════════════════════════════════════
 //  COACH HOLD
 // ═══════════════════════════════════════════════════
+let wtfToggle = false;
 function triggerHold(){
   if(!isChief) return;
   // Abrupt stop: timer + music pause at once, then show coaching hold screen
   if(running){ clearInterval(ticker); running=false; setPlayBtns(); }
   const ap = document.getElementById('audio');
   if(ap && !ap.paused){ ap.pause(); updateMusicBar(); }
+
+  // Play alternating audio when WTF button is pressed
+  const c = getACtx();
+  const buf = wtfToggle ? wtfFuckBuffer : wtfTimeBuffer;
+  const audioId = wtfToggle ? 'wtf-audio-fuck' : 'wtf-audio-time';
+  
+  if (c && buf) {
+      // Best case: Play via Web Audio API (zero latency, guaranteed to work on mobile)
+      const src = c.createBufferSource();
+      src.buffer = buf;
+      src.connect(c.destination);
+      src.start(0);
+  } else {
+      // Fallback: Use standard HTML5 Audio element
+      const fallbackAudio = document.getElementById(audioId);
+      if (fallbackAudio) {
+          fallbackAudio.muted = false;
+          fallbackAudio.volume = 1.0;
+          fallbackAudio.currentTime = 0;
+          fallbackAudio.play().catch(()=>{
+              if (c) airhorn(c); // Ultimate fallback if blocked
+          });
+      } else if (c) {
+          airhorn(c);
+      }
+  }
+  
+  wtfToggle = !wtfToggle; // flip the toggle for the next time it gets pressed
+
   populateSikeOverlay();
   showSike();
   bcast({sike:true});
@@ -2660,6 +2716,28 @@ function flashRound(){
 //  AUDIO — iOS-safe
 // ═══════════════════════════════════════════════════
 let actx=null;
+let customBellBuffer = null;
+let wtfTimeBuffer = null;
+let wtfFuckBuffer = null;
+window._pendingAudioData = [];
+
+// Helper to reliably fetch and decode audio for zero-latency playback
+function fetchAudio(url, callback) {
+    fetch(url)
+      .then(r => r.arrayBuffer())
+      .then(ab => {
+         if (actx && actx.state !== 'closed') {
+             actx.decodeAudioData(ab, buffer => { callback(buffer); }).catch(()=>{});
+         } else {
+             window._pendingAudioData.push({ab: ab, cb: callback});
+         }
+      }).catch(e => console.warn('Failed to load audio', url, e));
+}
+
+// Pre-load custom sounds
+fetchAudio('heavy_gym_bell_8.wav', b => { customBellBuffer = b; });
+fetchAudio('time.mp3', b => { wtfTimeBuffer = b; });
+fetchAudio('what%20the%20fuck.mp3', b => { wtfFuckBuffer = b; });
 
 function unlockAudio(){
   if(actx) return;
@@ -2669,15 +2747,14 @@ function unlockAudio(){
     const src=actx.createBufferSource();
     src.buffer=buf; src.connect(actx.destination); src.start(0);
 
-    // Prime the custom bell so it works during background intervals
-    const customBell = document.getElementById('custom-bell-audio');
-    if (customBell) {
-        customBell.muted = true;
-        customBell.play().then(() => {
-            customBell.pause();
-            customBell.currentTime = 0;
-            customBell.muted = false;
-        }).catch(()=>{});
+    // Decode any files that finished downloading before the user clicked
+    if (window._pendingAudioData.length > 0) {
+        window._pendingAudioData.forEach(item => {
+            actx.decodeAudioData(item.ab.slice(0), buffer => {
+                item.cb(buffer);
+            }).catch(()=>{});
+        });
+        window._pendingAudioData = []; 
     }
   }catch(e){}
 }
@@ -2911,8 +2988,6 @@ let sunoSyncTimer = null;
 let musicSetupPressTimer;
 let progressTimer = null;
 
-// IMPORTANT: audio element referenced via getElementById each time —
-// never cache as a const (spec: never store a ref that could go stale)
 const musicBar   = document.getElementById('music-bar');
 const mbPlay     = document.getElementById('mb-play');
 const mbTitle    = document.getElementById('mb-title');
