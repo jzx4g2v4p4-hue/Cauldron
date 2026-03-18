@@ -1016,6 +1016,7 @@ audio{display:none;}
         <button class="ccb go" id="c-play" onclick="toggleRun()">▶</button>
         <button class="ccb sm" onclick="nextPhase()" title="Next Step">▶▶</button>
         <button class="ccb sm" onclick="nextRound()" title="Next Round">⏭</button>
+        <button class="ccb sm" onclick="endCauldron()" title="End cauldron">END</button>
         <button class="ccb sm rst" onclick="doReset()">↺</button>
         <button class="ccb sm help-btn" onclick="openHelp()" title="Help">?</button>
       </div>
@@ -1533,6 +1534,7 @@ let sessionCode=null;
 let serverIP=localStorage.getItem('c_ip')||'';
 
 let round=0, phase=0, timeLeft=60, running=false;
+let aggressiveDrill=false, aggressiveElapsed=0;
 let ticker=null;
 let ws=null, rcTimer=null;
 let drawerOpen=false, musicPressTimer;
@@ -2075,6 +2077,8 @@ function handleMsg(msg){
 function applyState(s){
    const prevRound = round;
   round=s.round; phase=s.phase; timeLeft=s.timeLeft; running=s.running;
+  aggressiveDrill=!!s.aggressiveDrill;
+  aggressiveElapsed=s.aggressiveElapsed||0;
   if(s.sike){ populateSikeOverlay(); showSike(); } else hideSike();
   if(s.done) showDone();
    if(round>prevRound && phase===0){ beep('roundBell'); strongVibrate([300,120,300,120,460]); }
@@ -2094,6 +2098,7 @@ function hideBanner(){showBanner(false);}
 // ═══════════════════════════════════════════════════
 function startChief(){
   round=0; phase=0; timeLeft=PT[0]; running=false;
+  aggressiveDrill=false; aggressiveElapsed=0;
   buildChiefPhases();
   buildChiefPips();
   renderChief();
@@ -2117,6 +2122,7 @@ function joinChief(){
 function startSolo(){
   isSolo=true; sessionCode=null;
   round=0; phase=0; timeLeft=PT[0]; running=false;
+  aggressiveDrill=false; aggressiveElapsed=0;
   saveSession();
   initInstrScreen();
   go('s-instr');
@@ -2196,6 +2202,12 @@ function strongVibrate(pattern=[260,100,260,100,360]){
 }
 
 function tick(){
+  if(aggressiveDrill){
+    aggressiveElapsed++;
+    renderAll(); bcast();
+    return;
+  }
+
   timeLeft--;
   if(timeLeft===3) beep('warn');
 
@@ -2213,8 +2225,10 @@ function tick(){
         // Ask chief if they want music for the new round
         if(isChief && musicEnabled) showMusicRoundPrompt();
       } else {
-        clearInterval(ticker); running=false;
-        showDone(); bcast({done:true}); return;
+        aggressiveDrill=true;
+        aggressiveElapsed=0;
+        renderAll(); bcast();
+        return;
       }
     }
   }
@@ -2230,14 +2244,17 @@ function renderAll(){
 // ═══════════════════════════════════════════════════
 function renderChief(){
   // clock
-  const m=~~(timeLeft/60),s=timeLeft%60;
+  const displaySeconds = aggressiveDrill ? aggressiveElapsed : timeLeft;
+  const m=~~(displaySeconds/60),s=displaySeconds%60;
   const ck=document.getElementById('c-clock');
   ck.textContent=`${m}:${s.toString().padStart(2,'0')}`;
   ck.className='chief-clock';
-  if(timeLeft<=3) ck.classList.add('hot');
-  else if(timeLeft<=10) ck.classList.add('warn');
+  if(!aggressiveDrill){
+    if(timeLeft<=3) ck.classList.add('hot');
+    else if(timeLeft<=10) ck.classList.add('warn');
+  }
 
-  document.getElementById('c-rnd').textContent=`RND ${round+1}/${TOTAL_ROUNDS}`;
+  document.getElementById('c-rnd').textContent=aggressiveDrill ? 'AGGRESSIVE DRILL' : `RND ${round+1}/${TOTAL_ROUNDS}`;
    renderChiefStage();
   renderChiefPhases();
   renderChiefPips();
@@ -2248,6 +2265,12 @@ function renderChiefStage(){
   const nameEl = document.getElementById('c-stage-name');
   const detailEl = document.getElementById('c-stage-detail');
   if(!nameEl || !detailEl) return;
+  if(aggressiveDrill){
+    nameEl.textContent = 'AGGRESSIVE DRILL';
+    nameEl.style.color = '#E53935';
+    detailEl.textContent = 'CONTINUES UNTIL THE CHIEF PRESSES END';
+    return;
+  }
   const phaseLabel = phase===0 ? '60S — TECHNIQUE OVERVIEW' : `30S — STEP ${phase} OF 4`;
   nameEl.textContent = `ROUND ${round+1} / ${TOTAL_ROUNDS}`;
   nameEl.style.color = '#F5C518';
@@ -2301,16 +2324,6 @@ function renderChiefLiveCauldron(){
   });
 }
    
-function renderChiefStage(){
-  const nameEl = document.getElementById('c-stage-name');
-  const detailEl = document.getElementById('c-stage-detail');
-  if(!nameEl || !detailEl) return;
-  const phaseLabel = phase===0 ? '60S — TECHNIQUE OVERVIEW' : `30S — STEP ${phase} OF 4`;
-  nameEl.textContent = `ROUND ${round+1} / ${TOTAL_ROUNDS}`;
-  nameEl.style.color = '#F5C518';
-  detailEl.textContent = phaseLabel;
-}
-
 function buildChiefPhases(){
   const c=document.getElementById('c-phases'); c.innerHTML='';
   ['60s','30s','30s','30s','30s'].forEach((_,i)=>{
@@ -2608,14 +2621,17 @@ function renderInstr(){
   const col=d.color;
 
   // clock
-  const m=~~(timeLeft/60),s=timeLeft%60;
+  const displaySeconds = aggressiveDrill ? aggressiveElapsed : timeLeft;
+  const m=~~(displaySeconds/60),s=displaySeconds%60;
   const t=document.getElementById('i-time');
   t.textContent=`${m}:${s.toString().padStart(2,'0')}`;
   t.className='i-time'; t.style.color=col;
-  if(timeLeft<=3) t.classList.add('hot');
-  else if(timeLeft<=10) t.classList.add('warn');
+  if(!aggressiveDrill){
+    if(timeLeft<=3) t.classList.add('hot');
+    else if(timeLeft<=10) t.classList.add('warn');
+  }
 
-  document.getElementById('i-rnd-num').textContent=`${round+1} / ${TOTAL_ROUNDS}`;
+  document.getElementById('i-rnd-num').textContent=aggressiveDrill ? 'AGGRESSIVE' : `${round+1} / ${TOTAL_ROUNDS}`;
   document.getElementById('i-rnd-num').style.color=col;
 
   // pips
@@ -2697,7 +2713,14 @@ function doReset(){
   if(!isChief) return;
   clearInterval(ticker); running=false;
   round=0; phase=0; timeLeft=PT[0];
+  aggressiveDrill=false; aggressiveElapsed=0;
   hideSike(); setPlayBtns(); renderAll(); bcast();
+}
+function endCauldron(){
+  if(!isChief) return;
+  clearInterval(ticker); running=false;
+  showDone();
+  bcast({done:true});
 }
 function fullReset(){
   doReset();
