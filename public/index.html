@@ -2015,10 +2015,25 @@ function makeCode(){
 // ═══════════════════════════════════════════════════
 //  WEBSOCKET
 // ═══════════════════════════════════════════════════
+function normalizeServerTarget(raw){
+  const input=String(raw||'').trim();
+  if(!input) return null;
+
+  try{
+    const u=new URL(input.includes('://') ? input : `http://${input}`);
+    const proto = u.protocol==='https:' ? 'wss:' : 'ws:';
+    const host = u.host || u.pathname;
+    return host ? `${proto}//${host}` : null;
+  }catch(e){
+    return null;
+  }
+}
+
 function wsURL(){
   // On Render (or any https host) use wss://, otherwise ws://
-  // If user typed a manual IP, use that (local WiFi mode)
-  if(serverIP) return `ws://${serverIP}:${location.port||3000}`;
+  // If user typed a manual IP / host / URL, use that (local WiFi mode)
+  const manualTarget = normalizeServerTarget(serverIP);
+  if(manualTarget) return manualTarget;
   const proto = location.protocol==='https:' ? 'wss:' : 'ws:';
   const host  = location.host; // includes port if non-standard
   return `${proto}//${host}`;
