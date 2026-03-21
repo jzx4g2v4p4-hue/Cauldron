@@ -3057,6 +3057,9 @@ let sunoPlaylistAuto = localStorage.getItem('c_suno_playlist_auto') !== '0';
 let sunoSyncTimer = null;
 let musicSetupPressTimer;
 let progressTimer = null;
+const MUSIC_UPLOAD_DB = 'cauldron-music';
+const MUSIC_UPLOAD_STORE = 'uploads';
+const uploadBlobUrls = new Map();
 
 const musicBar   = document.getElementById('music-bar');
 const mbPlay     = document.getElementById('mb-play');
@@ -3069,6 +3072,74 @@ function saveActive(){ localStorage.setItem('c_active', activeTrackId||''); }
 function saveSunoSyncPrefs(){
   localStorage.setItem('c_suno_playlist_url', sunoPlaylistURL || '');
   localStorage.setItem('c_suno_playlist_auto', sunoPlaylistAuto ? '1' : '0');
+}
+
+function openUploadDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(MUSIC_UPLOAD_DB, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if(!db.objectStoreNames.contains(MUSIC_UPLOAD_STORE)) db.createObjectStore(MUSIC_UPLOAD_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error('IndexedDB unavailable'));
+  });
+}
+
+async function putUploadedFile(blobKey, file){
+  const db = await openUploadDB();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(MUSIC_UPLOAD_STORE, 'readwrite');
+    tx.objectStore(MUSIC_UPLOAD_STORE).put(file, blobKey);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Upload save failed'));
+  });
+}
+
+async function getUploadedFile(blobKey){
+  const db = await openUploadDB();
+  return await new Promise((resolve, reject) => {
+    const tx = db.transaction(MUSIC_UPLOAD_STORE, 'readonly');
+    const req = tx.objectStore(MUSIC_UPLOAD_STORE).get(blobKey);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error || new Error('Upload read failed'));
+  });
+}
+
+async function deleteUploadedFile(blobKey){
+  const db = await openUploadDB();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(MUSIC_UPLOAD_STORE, 'readwrite');
+    tx.objectStore(MUSIC_UPLOAD_STORE).delete(blobKey);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Upload delete failed'));
+  });
+  const oldUrl = uploadBlobUrls.get(blobKey);
+  if(oldUrl){ URL.revokeObjectURL(oldUrl); uploadBlobUrls.delete(blobKey); }
+}
+
+async function ensureUploadedTrackURL(track){
+  if(!track || track.source !== 'upload' || !track.blobKey) return track?.url || '';
+  if(uploadBlobUrls.has(track.blobKey)) return uploadBlobUrls.get(track.blobKey);
+  const file = await getUploadedFile(track.blobKey);
+  if(!file) throw new Error('Uploaded file is missing from this device');
+  const objectUrl = URL.createObjectURL(file);
+  uploadBlobUrls.set(track.blobKey, objectUrl);
+  return objectUrl;
+}
+
+function getTrackPlaybackURL(track){
+  if(!track) return '';
+  if(track.source === 'upload' && track.blobKey) return uploadBlobUrls.get(track.blobKey) || '';
+  return track.url || '';
+}
+
+async function primeUploadedTracks(){
+  for(const track of library){
+    if(track?.source === 'upload' && track?.blobKey){
+      try{ await ensureUploadedTrackURL(track); }catch(e){ console.warn('[Cauldron] Failed to hydrate uploaded track', track.name, e); }
+    }
+  }
 }
 
 function mergePlaylistTracks(tracks){
@@ -3196,14 +3267,19 @@ function updateProgress(){
 
 // ── Core audio control — single source of truth ──────
 // Checks data-track-id before touching src (spec rule #6)
-function _sunoLoad(id, autoPlay=false){
+async function _sunoLoad(id, autoPlay=false){
   const ap = document.getElementById('audio'); // always fresh ref
   if(!ap) return;
   const t  = library.find(t=>t.id===id);
   if(!t) return;
-  if(ap.getAttribute('data-track-id') !== id){
+  const resolvedUrl = getTrackPlaybackURL(t) || await ensureUploadedTrackURL(t).catch(()=> '');
+  if(!resolvedUrl){
+    showLibMsg('This uploaded file is missing from the device storage', 'warn');
+    return;
+  }
+  if(ap.getAttribute('data-track-id') !== id || ap.src !== resolvedUrl){
     ap.setAttribute('data-track-id', id);
-    ap.src = t.url;
+    ap.src = resolvedUrl;
     ap.load();
   }
   if(autoPlay) ap.play().catch(()=>{});
@@ -3385,6 +3461,7 @@ function dismissPWA(){
 }
 setTimeout(showPWABanner, 6000);
 setupSunoAutoSync();
+primeUploadedTracks().then(()=>{ renderLibList(); }).catch(()=>{});
 
 // ── Modal ─────────────────────────────────────────────
 const mbSetupBtn = document.getElementById('mb-setup');
@@ -3434,7 +3511,11 @@ function renderLibModal(){
       </div>
       <div class="lib-add-row">
         <input class="lib-input" id="li-url" placeholder="https://cdn1.suno.ai/….mp3  or  suno.com/song/…">
-        <button class="lib-add-btn" onclick="addTrack()">+ ADD</button>
+        <button class="lib-add-btn" onclick="addTrack()">+ ADD URL</button>
+      </div>
+      <div style="margin-top:4px;font-size:11px;letter-spacing:1px;color:rgba(245,240,232,0.65);">Or upload MP3 files straight from your phone:</div>
+      <div class="lib-add-row" style="align-items:center;flex-wrap:wrap;">
+        <input class="lib-input" id="li-file" type="file" accept=".mp3,audio/mpeg,audio/*" multiple onchange="uploadLocalTracks(event)">
       </div>
     </div>
     <div id="lib-msg" class="lib-msg"></div>
@@ -3464,7 +3545,7 @@ function renderLibList(){
   const list = document.getElementById('lib-list');
   if(!list) return;
   if(library.length===0){
-    list.innerHTML='<div class="lib-empty">No tracks yet.<br>Add a Suno URL above.</div>';
+    list.innerHTML='<div class="lib-empty">No tracks yet.<br>Add a Suno URL or upload MP3 files above.</div>';
     return;
   }
   list.innerHTML = library.map(t=>{
@@ -3484,7 +3565,7 @@ function renderLibList(){
       <div class="lt-check">${isActive ? '✓' : ''}</div>
       <div class="lt-info">
         <div class="lt-name">${escHtml(t.name)}</div>
-        <div class="lt-url">${escHtml(t.url)}</div>
+        <div class="lt-url">${escHtml(t.source === 'upload' ? 'Uploaded from this device' : t.url)}</div>
       </div>
       <div class="lt-btns">
         <button class="lt-btn preview${isPrev?' on':''}"
@@ -3559,7 +3640,6 @@ function addTrack(){
   if(!name){ showLibMsg('Give the track a name first', 'warn'); return; }
   if(!rawUrl){ showLibMsg('Paste a Suno URL', 'warn'); return; }
   if(!url.startsWith('http')){ showLibMsg('Paste a valid Suno URL or CDN link', 'warn'); return; }
-  // Check for duplicate
   if(library.find(t=>t.url===url)){ showLibMsg('That track is already in your library', 'warn'); return; }
   const id = 't'+Date.now();
   library.push({id, name, url});
@@ -3569,9 +3649,43 @@ function addTrack(){
   showLibMsg(`"${name}" added — tap ▶ to test it`, 'ok');
   if(library.length===1){ setActiveTrack(id); }
   renderLibList();
-  // update count
   const lbl = document.querySelector('.lib-section-lbl');
   if(lbl) lbl.textContent = `${library.length} TRACK${library.length!==1?'S':''} — DRAG ≡ TO REORDER`;
+}
+
+async function uploadLocalTracks(event){
+  const files = Array.from(event?.target?.files || []);
+  if(!files.length) return;
+  const audioFiles = files.filter(file => (file.type || '').startsWith('audio/') || /\.mp3$/i.test(file.name));
+  if(!audioFiles.length){ showLibMsg('Pick at least one MP3/audio file', 'warn'); event.target.value=''; return; }
+
+  let added = 0;
+  for(const file of audioFiles){
+    const name = file.name.replace(/\.[^.]+$/, '') || `Upload ${library.length+1}`;
+    const blobKey = `upload-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    try{
+      await putUploadedFile(blobKey, file);
+      const runtimeUrl = URL.createObjectURL(file);
+      uploadBlobUrls.set(blobKey, runtimeUrl);
+      const id = 'u'+Date.now()+Math.random().toString(36).slice(2,5);
+      library.push({ id, name, url:`upload://${blobKey}`, source:'upload', blobKey, mime:file.type || 'audio/mpeg', size:file.size });
+      added++;
+    }catch(e){
+      console.warn('[Cauldron] Upload failed', file.name, e);
+    }
+  }
+
+  saveLib();
+  event.target.value='';
+  if(added){
+    if(!activeTrackId && library[0]){ setActiveTrack(library[0].id); }
+    renderLibList();
+    const lbl = document.querySelector('.lib-section-lbl');
+    if(lbl) lbl.textContent = `${library.length} TRACK${library.length!==1?'S':''} — DRAG ≡ TO REORDER`;
+    showLibMsg(`${added} file${added!==1?'s':''} uploaded from this device`, 'ok');
+  }else{
+    showLibMsg('Could not store those audio files on this device', 'warn');
+  }
 }
 
 function showLibMsg(msg, type){
@@ -3587,9 +3701,13 @@ function showLibMsg(msg, type){
   el._t = setTimeout(()=>{ el.textContent=''; el.className='lib-msg'; }, 4000);
 }
 
-function deleteTrack(id){
+async function deleteTrack(id){
   if(id===previewId){ stopPreview(); }
+  const track = library.find(t=>t.id===id);
   library = library.filter(t=>t.id!==id);
+  if(track?.source === 'upload' && track?.blobKey){
+    try{ await deleteUploadedFile(track.blobKey); }catch(e){ console.warn('[Cauldron] Failed to delete uploaded file', e); }
+  }
   saveLib();
   if(id===activeTrackId){
     activeTrackId = library.length ? library[0].id : null;
@@ -3611,15 +3729,20 @@ function previewTrack(id){
   } else {
     if(previewId) stopPreview();
     previewId = id;
-    if(ap.getAttribute('data-track-id') !== id){
-      ap.setAttribute('data-track-id', id);
-      ap.src = t.url; ap.load();
-    }
-    ap.play().catch(e=>{
+    renderLibList();
+    Promise.resolve(getTrackPlaybackURL(t) || ensureUploadedTrackURL(t)).then((resolvedUrl)=>{
+      if(!resolvedUrl) throw new Error('missing');
+      if(ap.getAttribute('data-track-id') !== id || ap.src !== resolvedUrl){
+        ap.setAttribute('data-track-id', id);
+        ap.src = resolvedUrl; ap.load();
+      }
+      return ap.play();
+    }).catch(e=>{
       previewId=null;
-      showTrackError(id, 'Cannot play — URL may be expired or invalid');
+      showTrackError(id, t.source === 'upload' ? 'Upload missing from this device' : 'Cannot play — URL may be expired or invalid');
       renderLibList();
     });
+    return;
   }
   renderLibList();
 }
@@ -3630,9 +3753,13 @@ function stopPreview(){
   previewId = null;
   // Restore active track — only if src needs to change
   const t = library.find(t=>t.id===activeTrackId);
-  if(t && ap.getAttribute('data-track-id') !== t.id){
-    ap.setAttribute('data-track-id', t.id);
-    ap.src = t.url; ap.load();
+  if(t){
+    Promise.resolve(getTrackPlaybackURL(t) || ensureUploadedTrackURL(t)).then((resolvedUrl)=>{
+      if(resolvedUrl && (ap.getAttribute('data-track-id') !== t.id || ap.src !== resolvedUrl)){
+        ap.setAttribute('data-track-id', t.id);
+        ap.src = resolvedUrl; ap.load();
+      }
+    }).catch(()=>{});
   }
   updateMusicBar();
 }
