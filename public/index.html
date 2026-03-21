@@ -3863,6 +3863,41 @@ async function uploadLocalTracks(event){
   }
 }
 
+async function uploadLocalTracks(event){
+  const files = Array.from(event?.target?.files || []);
+  if(!files.length) return;
+  const audioFiles = files.filter(file => (file.type || '').startsWith('audio/') || /\.mp3$/i.test(file.name));
+  if(!audioFiles.length){ showLibMsg('Pick at least one MP3/audio file', 'warn'); event.target.value=''; return; }
+
+  let added = 0;
+  for(const file of audioFiles){
+    const name = file.name.replace(/\.[^.]+$/, '') || `Upload ${library.length+1}`;
+    const blobKey = `upload-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    try{
+      await putUploadedFile(blobKey, file);
+      const runtimeUrl = URL.createObjectURL(file);
+      uploadBlobUrls.set(blobKey, runtimeUrl);
+      const id = 'u'+Date.now()+Math.random().toString(36).slice(2,5);
+      library.push({ id, name, url:`upload://${blobKey}`, source:'upload', blobKey, mime:file.type || 'audio/mpeg', size:file.size });
+      added++;
+    }catch(e){
+      console.warn('[Cauldron] Upload failed', file.name, e);
+    }
+  }
+
+  saveLib();
+  event.target.value='';
+  if(added){
+    if(!activeTrackId && library[0]){ setActiveTrack(library[0].id); }
+    renderLibList();
+    const lbl = document.querySelector('.lib-section-lbl');
+    if(lbl) lbl.textContent = `${library.length} TRACK${library.length!==1?'S':''} — DRAG ≡ TO REORDER`;
+    showLibMsg(`${added} file${added!==1?'s':''} uploaded from this device`, 'ok');
+  }else{
+    showLibMsg('Could not store those audio files on this device', 'warn');
+  }
+}
+
 function showLibMsg(msg, type){
   let el = document.getElementById('lib-msg');
   if(!el){
