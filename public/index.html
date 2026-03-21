@@ -65,6 +65,7 @@ body{
 .role-card{border-radius:14px;padding:18px 14px;cursor:pointer;border:1px solid rgba(255,255,255,0.07);background:var(--surface);transition:transform .1s,border-color .15s;text-align:center;}
 .role-card:active{transform:scale(0.95);}
 .role-card.chief{border-color:rgba(245,197,24,0.3);grid-column:1/-1;}/* full width */
+.role-card.music-only{border-color:rgba(30,136,229,0.28);grid-column:1/-1;background:linear-gradient(180deg,rgba(30,136,229,0.08),rgba(14,14,14,1));}
 .rc-icon{font-size:32px;display:block;margin-bottom:6px;}
 .rc-name{font-family:'Black Han Sans',sans-serif;font-size:16px;letter-spacing:2px;}
 .rc-desc{font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:3px;}
@@ -98,6 +99,7 @@ body{
    SESSION / JOIN
 ═══════════════════════════════════ */
 #s-session,#s-join{gap:16px;}
+#s-jukebox{justify-content:flex-start;padding-top:30px;gap:16px;}
 .sess-code{font-family:'Black Han Sans',sans-serif;font-size:80px;letter-spacing:16px;line-height:1;text-align:center;}
 .lbl{font-size:10px;letter-spacing:4px;color:var(--muted);text-transform:uppercase;text-align:center;}
 .sync-row{display:flex;align-items:center;gap:8px;justify-content:center;}
@@ -111,6 +113,23 @@ body{
 .btn:active{transform:scale(0.97);opacity:.88;}
 .btn-ghost{background:none;border:none;color:var(--muted);font-size:12px;letter-spacing:2px;cursor:pointer;padding:6px;}
 .back{position:absolute;top:16px;left:16px;background:none;border:none;color:var(--muted);font-size:12px;letter-spacing:2px;cursor:pointer;z-index:5;}
+.jukebox-wrap{width:100%;max-width:420px;display:flex;flex-direction:column;gap:14px;}
+.jukebox-card{background:var(--surface);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:16px;}
+.jukebox-title{font-family:'Black Han Sans',sans-serif;font-size:26px;letter-spacing:4px;text-align:center;}
+.jukebox-sub{font-size:12px;letter-spacing:1px;color:var(--muted);text-align:center;line-height:1.6;margin-top:6px;}
+.jukebox-now{font-family:'Black Han Sans',sans-serif;font-size:20px;letter-spacing:2px;text-align:center;line-height:1.2;}
+.jukebox-controls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}
+.jukebox-btn{border:none;border-radius:12px;padding:12px 14px;background:var(--surface2);color:var(--text);font-family:'Black Han Sans',sans-serif;letter-spacing:1px;cursor:pointer;}
+.jukebox-btn.primary{background:linear-gradient(135deg,#F5C518,#C49A0E);color:#000;}
+.jukebox-btn.on{outline:2px solid rgba(245,197,24,0.45);}
+.queue-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+.queue-item{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px 12px;}
+.queue-meta{min-width:0;}
+.queue-name{font-size:14px;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.queue-sub{font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-top:2px;}
+.queue-actions{display:flex;gap:6px;flex-shrink:0;}
+.queue-btn{border:none;border-radius:8px;padding:6px 8px;background:var(--surface3);color:var(--text);cursor:pointer;font-size:12px;}
+.queue-empty{font-size:11px;letter-spacing:1px;color:var(--muted);text-align:center;padding:8px 0;}
 
 /* ═══════════════════════════════════
    CHIEF TIMER — 4-panel dashboard
@@ -937,6 +956,12 @@ audio{display:none;}
       <div class="rc-name">CHIEF INSTRUCTOR</div>
       <div class="rc-desc">Sees all belts — controls the timer</div>
     </div>
+    <div class="role-card music-only" onclick="pickMusicOnly()">
+      <span class="rc-icon">🎵</span>
+      <div class="rc-name">MUSIC ONLY</div>
+      <div class="rc-desc">Continuous player • no timer • no session required</div>
+      <div class="rc-cauldron">QUEUE TRACKS • SHUFFLE • PLAY FROM PHONE</div>
+    </div>
 
     <!-- Instructor: pick which belt you're running -->
     <div class="role-card" onclick="pickInstructor('yellow')" style="border-color:rgba(245,197,24,0.3)">
@@ -968,6 +993,37 @@ audio{display:none;}
       <div class="rc-name" style="color:#8D6E63;font-size:13px">BROWN</div>
       <div class="rc-desc">Instructor</div>
       <div class="rc-cauldron" style="color:#8D6E63">ORANGE → GREEN</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MUSIC ONLY / JUKEBOX ═══════════ -->
+<div id="s-jukebox" class="screen">
+  <button class="back" onclick="go('s-home')">← BACK</button>
+  <div class="jukebox-wrap">
+    <div class="jukebox-card">
+      <div style="font-size:46px;text-align:center;filter:drop-shadow(0 0 18px rgba(30,136,229,0.35));">🎵</div>
+      <div class="jukebox-title">MUSIC ONLY</div>
+      <div class="jukebox-sub">Run Cauldron like a standalone player. No session code, no timer, just continuous music.</div>
+    </div>
+    <div class="jukebox-card">
+      <div class="lbl" style="margin-bottom:10px;">NOW PLAYING</div>
+      <div class="jukebox-now" id="jukebox-now">NO TRACK — OPEN LIBRARY</div>
+      <div class="jukebox-sub" id="jukebox-sub">Upload MP3s, add Suno tracks, then play continuously.</div>
+      <div class="jukebox-controls" style="margin-top:14px;">
+        <button class="jukebox-btn" onclick="djPrev()">⏮ PREV</button>
+        <button class="jukebox-btn primary" id="jukebox-play-btn" onclick="toggleMusic()">▶ PLAY</button>
+        <button class="jukebox-btn" onclick="djNext()">NEXT ⏭</button>
+        <button class="jukebox-btn" id="jukebox-shuffle-btn" onclick="djShuffle()">⇄ SHUFFLE</button>
+      </div>
+      <div class="jukebox-controls" style="margin-top:10px;">
+        <button class="jukebox-btn" onclick="openMusicModal()">⚙ LIBRARY</button>
+        <button class="jukebox-btn" onclick="clearQueue()">✕ CLEAR QUEUE</button>
+      </div>
+    </div>
+    <div class="jukebox-card">
+      <div class="lbl">UP NEXT</div>
+      <div id="queue-panel"></div>
     </div>
   </div>
 </div>
@@ -1573,6 +1629,18 @@ function setMusicPref(yes){
   }
   // Always continue to session screen after choosing
   go('s-session');
+}
+
+function pickMusicOnly(){
+  role='chief';
+  isChief=true;
+  isSolo=true;
+  sessionCode=null;
+  musicEnabled=true;
+  showMusicBar();
+  initMusicBar();
+  renderQueuePanel();
+  go('s-jukebox');
 }
 
 // ═══════════════════════════════════════════════════
@@ -3051,6 +3119,7 @@ let library       = JSON.parse(localStorage.getItem('c_lib') || '[]');
 let activeTrackId = localStorage.getItem('c_active') || (library[0]?.id || null);
 let previewId     = null;
 let shuffleOn     = false;
+let playQueue     = JSON.parse(localStorage.getItem('c_queue') || '[]');
 const DEFAULT_SUNO_PLAYLIST_URL = 'https://suno.com/s/ykNzOHy1a8W68NaS';
 let sunoPlaylistURL = localStorage.getItem('c_suno_playlist_url') || DEFAULT_SUNO_PLAYLIST_URL;
 let sunoPlaylistAuto = localStorage.getItem('c_suno_playlist_auto') !== '0';
@@ -3069,6 +3138,7 @@ const musicModal = document.getElementById('music-modal');
 
 function saveLib(){ localStorage.setItem('c_lib', JSON.stringify(library)); }
 function saveActive(){ localStorage.setItem('c_active', activeTrackId||''); }
+function saveQueue(){ localStorage.setItem('c_queue', JSON.stringify(playQueue)); }
 function saveSunoSyncPrefs(){
   localStorage.setItem('c_suno_playlist_url', sunoPlaylistURL || '');
   localStorage.setItem('c_suno_playlist_auto', sunoPlaylistAuto ? '1' : '0');
@@ -3162,8 +3232,7 @@ function mergePlaylistTracks(tracks){
     }
     initMusicBar();
     renderLibList();
-    const lbl = document.querySelector('.lib-section-lbl');
-    if(lbl) lbl.textContent = `${library.length} TRACK${library.length!==1?'S':''} — TAP TO SELECT`;
+    updateLibraryCountLabel();
   }
   return added;
 }
@@ -3206,6 +3275,8 @@ function setupSunoAutoSync(){
 //  element's inline onX= attributes call these.
 // ════════════════════════════════════════════════════
 window._sunoOnEnded = function(){
+  const queued = dequeueNextTrack();
+  if(queued){ _sunoLoad(queued.id, true); return; }
   if(shuffleOn){
     const others = library.filter(t=>t.id!==activeTrackId);
     const next = others.length ? others[~~(Math.random()*others.length)] : library[0];
@@ -3363,6 +3434,8 @@ function initMusicBar(){
     mbArt.style.background = '';
   }
   updateMusicBar();
+  updateNowPlayingUI();
+  renderQueuePanel();
 }
 
 function setActiveTrack(id, autoPlay=false){
@@ -3376,7 +3449,10 @@ function setActiveTrack(id, autoPlay=false){
   mbArt.textContent   = '🔥';
   mbArt.style.background = 'rgba(245,197,24,0.15)';
   updateMusicBar();
+  updateNowPlayingUI();
   renderLibList();
+  renderQueuePanel();
+  renderQueueListInModal();
 }
 
 function updateMusicBar(){
@@ -3384,10 +3460,15 @@ function updateMusicBar(){
   const playing = ap && !ap.paused;
   const playBtn = document.getElementById('mb-play');
   const instrBtn = document.getElementById('mb-play-instr');
+  const jukeboxBtn = document.getElementById('jukebox-play-btn');
+  const shuffleBtn = document.getElementById('jukebox-shuffle-btn');
   if(playBtn){ playBtn.textContent = playing ? '⏸' : '▶'; }
   if(instrBtn){ instrBtn.textContent = playing ? '⏸' : '▶'; }
+  if(jukeboxBtn){ jukeboxBtn.textContent = playing ? '⏸ PAUSE' : '▶ PLAY'; }
+  if(shuffleBtn){ shuffleBtn.classList.toggle('on', shuffleOn); }
   musicBar.classList.toggle('playing', playing);
   updateProgress();
+  updateNowPlayingUI();
 }
 
 // Called when timer starts — requires prior user gesture
@@ -3423,6 +3504,11 @@ function djPrev(){
 }
 function djNext(){
   if(!isChief) return;
+  const queued = dequeueNextTrack();
+  if(queued){
+    setActiveTrack(queued.id, !document.getElementById('audio').paused);
+    return;
+  }
   if(shuffleOn){
     const others = library.filter(t=>t.id!==activeTrackId);
     const next = others.length ? others[~~(Math.random()*others.length)] : library[0];
@@ -3438,6 +3524,7 @@ function djShuffle(){
   shuffleOn = !shuffleOn;
   const btn = document.getElementById('mb-shuf');
   if(btn) btn.classList.toggle('on', shuffleOn);
+  updateMusicBar();
 }
 
 function applyMusicState(msg){
@@ -3519,9 +3606,13 @@ function renderLibModal(){
       </div>
     </div>
     <div id="lib-msg" class="lib-msg"></div>
-    <div class="lib-section-lbl">${library.length} TRACK${library.length!==1?'S':''} — DRAG ≡ TO REORDER</div>
+    <div class="lib-section-lbl" id="lib-queue-lbl">QUEUE — ${playQueue.length} TRACK${playQueue.length!==1?'S':''}</div>
+    <div id="lib-queue"></div>
+    <div class="lib-section-lbl" id="lib-library-lbl">${library.length} TRACK${library.length!==1?'S':''} — DRAG ≡ TO REORDER</div>
     <div class="lib-list" id="lib-list"></div>`;
+  renderQueuePanel();
   renderLibList();
+  renderQueueListInModal();
 }
 
 function savePlaylistSyncURL(){
@@ -3565,9 +3656,11 @@ function renderLibList(){
       <div class="lt-check">${isActive ? '✓' : ''}</div>
       <div class="lt-info">
         <div class="lt-name">${escHtml(t.name)}</div>
-        <div class="lt-url">${escHtml(t.source === 'upload' ? 'Uploaded from this device' : t.url)}</div>
+      <div class="lt-url">${escHtml(t.source === 'upload' ? 'Uploaded from this device' : t.url)}</div>
       </div>
       <div class="lt-btns">
+        <button class="lt-btn"
+                onclick="event.stopPropagation();queueTrack('${t.id}')">＋</button>
         <button class="lt-btn preview${isPrev?' on':''}"
                 onclick="event.stopPropagation();previewTrack('${t.id}')">${isPrev?'⏸':'▶'}</button>
         <button class="lt-btn danger"
@@ -3575,6 +3668,88 @@ function renderLibList(){
       </div>
     </div>`;
   }).join('');
+}
+
+function queueTrack(id){
+  const t = library.find(track => track.id === id);
+  if(!t){ showLibMsg('Track not found', 'warn'); return; }
+  playQueue.push(id);
+  saveQueue();
+  renderQueuePanel();
+  renderQueueListInModal();
+  updateNowPlayingUI();
+  showLibMsg(`Queued "${t.name}"`, 'ok');
+}
+
+function dequeueNextTrack(){
+  while(playQueue.length){
+    const nextId = playQueue.shift();
+    saveQueue();
+    const track = library.find(t => t.id === nextId);
+    if(track){
+      renderQueuePanel();
+      renderQueueListInModal();
+      updateNowPlayingUI();
+      return track;
+    }
+  }
+  renderQueuePanel();
+  renderQueueListInModal();
+  updateNowPlayingUI();
+  return null;
+}
+
+function removeQueuedTrack(idx){
+  if(idx < 0 || idx >= playQueue.length) return;
+  playQueue.splice(idx, 1);
+  saveQueue();
+  renderQueuePanel();
+  renderQueueListInModal();
+  updateNowPlayingUI();
+}
+
+function clearQueue(){
+  playQueue = [];
+  saveQueue();
+  renderQueuePanel();
+  renderQueueListInModal();
+  updateNowPlayingUI();
+  showLibMsg('Queue cleared', 'ok');
+}
+
+function renderQueueListMarkup(){
+  if(!playQueue.length) return '<div class="queue-empty">Nothing queued yet. Tap ＋ on a track to add it.</div>';
+  return `<div class="queue-list">${playQueue.map((id, idx) => {
+    const t = library.find(track => track.id === id);
+    if(!t) return '';
+    return `<div class="queue-item">
+      <div class="queue-meta">
+        <div class="queue-name">${escHtml(t.name)}</div>
+        <div class="queue-sub">${idx === 0 ? 'plays next' : `queued #${idx+1}`}</div>
+      </div>
+      <div class="queue-actions">
+        <button class="queue-btn" onclick="setActiveTrack('${t.id}', true)">PLAY</button>
+        <button class="queue-btn" onclick="removeQueuedTrack(${idx})">✕</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderQueuePanel(){
+  const panel = document.getElementById('queue-panel');
+  if(panel) panel.innerHTML = renderQueueListMarkup();
+  const lbl = document.getElementById('lib-queue-lbl');
+  if(lbl) lbl.textContent = `QUEUE — ${playQueue.length} TRACK${playQueue.length!==1?'S':''}`;
+}
+
+function renderQueueListInModal(){
+  const el = document.getElementById('lib-queue');
+  if(el) el.innerHTML = renderQueueListMarkup();
+}
+
+function updateLibraryCountLabel(){
+  const lbl = document.getElementById('lib-library-lbl');
+  if(lbl) lbl.textContent = `${library.length} TRACK${library.length!==1?'S':''} — DRAG ≡ TO REORDER`;
 }
 
 // ── Drag & Drop Handlers for Library ─────────────────
@@ -3649,8 +3824,43 @@ function addTrack(){
   showLibMsg(`"${name}" added — tap ▶ to test it`, 'ok');
   if(library.length===1){ setActiveTrack(id); }
   renderLibList();
-  const lbl = document.querySelector('.lib-section-lbl');
-  if(lbl) lbl.textContent = `${library.length} TRACK${library.length!==1?'S':''} — DRAG ≡ TO REORDER`;
+  updateLibraryCountLabel();
+}
+
+async function uploadLocalTracks(event){
+  const files = Array.from(event?.target?.files || []);
+  if(!files.length) return;
+  const audioFiles = files.filter(file => (file.type || '').startsWith('audio/') || /\.mp3$/i.test(file.name));
+  if(!audioFiles.length){ showLibMsg('Pick at least one MP3/audio file', 'warn'); event.target.value=''; return; }
+
+  let added = 0;
+  for(const file of audioFiles){
+    const name = file.name.replace(/\.[^.]+$/, '') || `Upload ${library.length+1}`;
+    const blobKey = `upload-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    try{
+      await putUploadedFile(blobKey, file);
+      const runtimeUrl = URL.createObjectURL(file);
+      uploadBlobUrls.set(blobKey, runtimeUrl);
+      const id = 'u'+Date.now()+Math.random().toString(36).slice(2,5);
+      library.push({ id, name, url:`upload://${blobKey}`, source:'upload', blobKey, mime:file.type || 'audio/mpeg', size:file.size });
+      added++;
+    }catch(e){
+      console.warn('[Cauldron] Upload failed', file.name, e);
+    }
+  }
+
+  saveLib();
+  event.target.value='';
+  if(added){
+    if(!activeTrackId && library[0]){ setActiveTrack(library[0].id); }
+    renderLibList();
+    renderQueuePanel();
+    renderQueueListInModal();
+    updateLibraryCountLabel();
+    showLibMsg(`${added} file${added!==1?'s':''} uploaded from this device`, 'ok');
+  }else{
+    showLibMsg('Could not store those audio files on this device', 'warn');
+  }
 }
 
 async function uploadLocalTracks(event){
@@ -3705,6 +3915,8 @@ async function deleteTrack(id){
   if(id===previewId){ stopPreview(); }
   const track = library.find(t=>t.id===id);
   library = library.filter(t=>t.id!==id);
+  playQueue = playQueue.filter(queuedId => queuedId !== id);
+  saveQueue();
   if(track?.source === 'upload' && track?.blobKey){
     try{ await deleteUploadedFile(track.blobKey); }catch(e){ console.warn('[Cauldron] Failed to delete uploaded file', e); }
   }
@@ -3715,9 +3927,10 @@ async function deleteTrack(id){
     initMusicBar();
   }
   renderLibList();
+  renderQueuePanel();
+  renderQueueListInModal();
   // update count label
-  const lbl = document.querySelector('.lib-section-lbl');
-  if(lbl) lbl.textContent = `${library.length} TRACK${library.length!==1?'S':''} — DRAG ≡ TO REORDER`;
+  updateLibraryCountLabel();
 }
 
 function previewTrack(id){
@@ -3762,6 +3975,20 @@ function stopPreview(){
     }).catch(()=>{});
   }
   updateMusicBar();
+}
+
+function updateNowPlayingUI(){
+  const t = library.find(track => track.id === activeTrackId);
+  const now = document.getElementById('jukebox-now');
+  const sub = document.getElementById('jukebox-sub');
+  if(!now || !sub) return;
+  if(!t){
+    now.textContent = 'NO TRACK — OPEN LIBRARY';
+    sub.textContent = 'Upload MP3s, add Suno tracks, then play continuously.';
+    return;
+  }
+  now.textContent = t.name;
+  sub.textContent = playQueue.length ? `${playQueue.length} queued up next` : (shuffleOn ? 'Shuffle is on' : 'Playing library order');
 }
 
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
