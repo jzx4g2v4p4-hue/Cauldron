@@ -20,17 +20,25 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 
-function extractSunoPlaylistId(raw = '') {
+function extractSunoPlaylistRef(raw = '') {
   const input = String(raw || '').trim();
   if (!input) return null;
+
   const uuidMatch = input.match(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i);
-  if (uuidMatch) return uuidMatch[0];
+  if (uuidMatch) return { type: 'id', value: uuidMatch[0] };
+
   try {
     const u = new URL(input.startsWith('http') ? input : `https://${input}`);
     const parts = u.pathname.split('/').filter(Boolean);
     const idx = parts.findIndex((p) => p === 'playlist' || p === 'playlists' || p === 'p');
-    if (idx >= 0 && parts[idx + 1]) return parts[idx + 1];
+    if (idx >= 0 && parts[idx + 1]) return { type: 'id', value: parts[idx + 1] };
+    if (parts[0] === 's' && parts[1]) return { type: 'share', value: parts[1] };
   } catch {}
+
+  if (/^[A-Za-z0-9_-]{8,}$/.test(input)) {
+    return { type: 'share', value: input };
+  }
+
   return null;
 }
 
@@ -88,39 +96,47 @@ async function fetchJsonMaybe(url) {
   try { return JSON.parse(txt); } catch { throw new Error('Invalid JSON'); }
 }
 
-async function fetchPlaylistTracks(playlistId) {
-  const candidates = [
-    `https://studio-api.suno.ai/api/playlist/${playlistId}`,
-    `https://studio-api.suno.ai/api/playlist/${playlistId}?page=1`,
-    `https://suno.com/api/playlist/${playlistId}`,
-    `https://suno.com/api/playlists/${playlistId}`,
-  ];
+async function fetchPlaylistTracks(playlistRef) {
+  const ref = typeof playlistRef === 'string' ? { type: 'id', value: playlistRef } : playlistRef;
+  const candidates = ref?.type === 'share'
+    ? [
+        `https://studio-api.suno.ai/api/playlist/by-share/${ref.value}`,
+        `https://suno.com/api/playlist/by-share/${ref.value}`,
+        `https://suno.com/api/playlists/by-share/${ref.value}`,
+      ]
+    : [
+        `https://studio-api.suno.ai/api/playlist/${ref.value}`,
+        `https://studio-api.suno.ai/api/playlist/${ref.value}?page=1`,
+        `https://suno.com/api/playlist/${ref.value}`,
+        `https://suno.com/api/playlists/${ref.value}`,
+      ];
 
   for (const endpoint of candidates) {
     try {
       const data = await fetchJsonMaybe(endpoint);
       const tracks = parseSunoTracks(data);
-      if (tracks.length) return { tracks, source: endpoint };
+      if (tracks.length) return { tracks, source: endpoint, playlistRef: ref.value };
     } catch {}
   }
 
-  throw new Error('Unable to read tracks from Suno playlist endpoint');
+  throw new Error(`Unable to read tracks from Suno ${ref?.type === 'share' ? 'share link' : 'playlist'} endpoint`);
 }
 
 
 
 app.get('/api/suno/playlist', async (req, res) => {
   const playlistUrl = String(req.query.url || '').trim();
-  const playlistId = extractSunoPlaylistId(playlistUrl);
-  if (!playlistId) {
-    res.status(400).json({ error: 'Provide a valid Suno playlist URL or ID.' });
+  const playlistRef = extractSunoPlaylistRef(playlistUrl);
+  if (!playlistRef) {
+    res.status(400).json({ error: 'Provide a valid Suno playlist URL, share link, or playlist ID.' });
     return;
   }
 
   try {
-    const { tracks, source } = await fetchPlaylistTracks(playlistId);
+    const { tracks, source, playlistRef: resolvedRef } = await fetchPlaylistTracks(playlistRef);
     res.json({
-      playlistId,
+      playlistId: playlistRef.type === 'id' ? resolvedRef : null,
+      shareId: playlistRef.type === 'share' ? resolvedRef : null,
       fetchedFrom: source,
       count: tracks.length,
       tracks,
