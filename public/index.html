@@ -1186,15 +1186,86 @@ audio{display:none;}
 
 <!-- ═══════════ MUSIC PREF SCREEN (chief only) ═══════════ -->
 <div id="s-music-pref" class="screen">
-  <div style="max-width:340px;width:100%;text-align:center;display:flex;flex-direction:column;align-items:center;gap:18px;">
+  <div style="max-width:360px;width:100%;text-align:center;display:flex;flex-direction:column;align-items:center;gap:18px;">
     <div style="font-size:52px;filter:drop-shadow(0 0 20px rgba(245,197,24,0.4))">🎵</div>
     <div>
-      <div style="font-family:'Black Han Sans',sans-serif;font-size:26px;letter-spacing:4px;color:var(--text);">IN-APP MUSIC?</div>
-      <div style="font-size:13px;letter-spacing:1px;color:var(--muted);margin-top:10px;line-height:1.7">Cauldron has a built-in Drengr playlist.<br>Say <b style="color:var(--text)">NO</b> if you use Spotify, Apple Music, etc.<br>Cauldron won't touch audio at all.</div>
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:26px;letter-spacing:4px;color:var(--text);">BUILD YOUR CAULDRON</div>
+      <div style="font-size:13px;letter-spacing:1px;color:var(--muted);margin-top:10px;line-height:1.7">Choose your rounds, timer style, and music before the chief session starts.</div>
     </div>
-    <div style="display:flex;flex-direction:column;gap:10px;width:100%;">
-      <button class="btn" onclick="setMusicPref(true)" style="background:linear-gradient(135deg,#F5C518,#C49A0E);color:#000;font-size:16px;letter-spacing:3px;">✓ YES — CAULDRON MUSIC</button>
-      <button class="btn-ghost" onclick="setMusicPref(false)">✗ NO — I'LL USE MY OWN APP</button>
+    <div style="display:flex;flex-direction:column;gap:12px;width:100%;text-align:left;">
+      <div style="background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px;">
+        <div class="lbl" style="text-align:left;margin-bottom:8px;">HOW MANY ROUNDS?</div>
+        <input id="cfg-rounds" type="range" min="1" max="12" step="1" value="8" oninput="updateCauldronConfig('rounds', Number(this.value))" style="width:100%;">
+        <div style="font-family:'Black Han Sans',sans-serif;font-size:22px;letter-spacing:2px;text-align:center;margin-top:6px;" id="cfg-rounds-value">8 ROUNDS</div>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px;">
+        <div class="lbl" style="text-align:left;margin-bottom:8px;">TIMER STYLE</div>
+        <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+          <button class="jukebox-btn" id="cfg-mode-normal" onclick="updateCauldronConfig('timerMode','normal')">NORMAL • 60s overview + 4×30s</button>
+          <button class="jukebox-btn" id="cfg-mode-all30" onclick="updateCauldronConfig('timerMode','all30')">ALL 30 SEC • 5×30s</button>
+          <button class="jukebox-btn" id="cfg-mode-none" onclick="updateCauldronConfig('timerMode','none')">NO TIMER • manual advance only</button>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px;">
+        <div class="lbl" style="text-align:left;margin-bottom:8px;">MUSIC</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button class="jukebox-btn" id="cfg-music-on" onclick="updateCauldronConfig('musicEnabled', true)">CAULDRON MUSIC</button>
+          <button class="jukebox-btn" id="cfg-music-off" onclick="updateCauldronConfig('musicEnabled', false)">NO MUSIC</button>
+        </div>
+      </div>
+
+      <div style="background:rgba(245,197,24,0.07);border:1px solid rgba(245,197,24,0.2);border-radius:14px;padding:14px;text-align:center;">
+        <div class="lbl" style="margin-bottom:8px;">ESTIMATED TIME</div>
+        <div style="font-family:'Black Han Sans',sans-serif;font-size:28px;letter-spacing:2px;color:#F5C518;" id="cfg-estimate">24:00</div>
+        <div style="font-size:11px;letter-spacing:1px;color:var(--muted);margin-top:6px;" id="cfg-estimate-note">Based on the timer settings above.</div>
+      </div>
+
+      <button class="btn" onclick="confirmCauldronSetup()" style="max-width:none;">CONTINUE TO SESSION</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ CUSTOM CAULDRON SETUP ═══════════ -->
+<div id="s-custom-cauldron" class="screen">
+  <div style="max-width:360px;width:100%;text-align:center;display:flex;flex-direction:column;align-items:center;gap:18px;">
+    <div style="font-size:52px;filter:drop-shadow(0 0 20px rgba(245,197,24,0.4))">🎵</div>
+    <div>
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:26px;letter-spacing:4px;color:var(--text);">BUILD YOUR CAULDRON</div>
+      <div style="font-size:13px;letter-spacing:1px;color:var(--muted);margin-top:10px;line-height:1.7">Choose your rounds, timer style, and music before the chief session starts.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;width:100%;text-align:left;">
+      <div style="background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px;">
+        <div class="lbl" style="text-align:left;margin-bottom:8px;">HOW MANY ROUNDS?</div>
+        <input id="cfg-rounds" type="range" min="1" max="12" step="1" value="8" oninput="updateCauldronConfig('rounds', Number(this.value))" style="width:100%;">
+        <div style="font-family:'Black Han Sans',sans-serif;font-size:22px;letter-spacing:2px;text-align:center;margin-top:6px;" id="cfg-rounds-value">8 ROUNDS</div>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px;">
+        <div class="lbl" style="text-align:left;margin-bottom:8px;">TIMER STYLE</div>
+        <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+          <button class="jukebox-btn" id="cfg-mode-normal" onclick="updateCauldronConfig('timerMode','normal')">NORMAL • 60s overview + 4×30s</button>
+          <button class="jukebox-btn" id="cfg-mode-all30" onclick="updateCauldronConfig('timerMode','all30')">ALL 30 SEC • 5×30s</button>
+          <button class="jukebox-btn" id="cfg-mode-none" onclick="updateCauldronConfig('timerMode','none')">NO TIMER • manual advance only</button>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px;">
+        <div class="lbl" style="text-align:left;margin-bottom:8px;">MUSIC</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button class="jukebox-btn" id="cfg-music-on" onclick="updateCauldronConfig('musicEnabled', true)">CAULDRON MUSIC</button>
+          <button class="jukebox-btn" id="cfg-music-off" onclick="updateCauldronConfig('musicEnabled', false)">NO MUSIC</button>
+        </div>
+      </div>
+
+      <div style="background:rgba(245,197,24,0.07);border:1px solid rgba(245,197,24,0.2);border-radius:14px;padding:14px;text-align:center;">
+        <div class="lbl" style="margin-bottom:8px;">ESTIMATED TIME</div>
+        <div style="font-family:'Black Han Sans',sans-serif;font-size:28px;letter-spacing:2px;color:#F5C518;" id="cfg-estimate">24:00</div>
+        <div style="font-size:11px;letter-spacing:1px;color:var(--muted);margin-top:6px;" id="cfg-estimate-note">Based on the timer settings above.</div>
+      </div>
+
+      <button class="btn" onclick="confirmCauldronSetup()" style="max-width:none;">CONTINUE TO SESSION</button>
     </div>
   </div>
 </div>
