@@ -931,6 +931,15 @@ audio{display:none;}
     <div class="sdot" id="sdot"></div>
   </div>
 
+  <div style="width:100%;max-width:400px;display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:12px;">
+    <button class="btn" onclick="openBuilder()" style="max-width:none;background:linear-gradient(135deg,#4CAF50,#357A38);color:#fff;">
+      🛠 STANDALONE BUILDER (NO SYNC)
+    </button>
+    <button class="btn" onclick="openMusicModal();showMusicBar();initMusicBar();" style="max-width:none;background:linear-gradient(135deg,#1E88E5,#1455A4);color:#fff;">
+      🎵 MUSIC ONLY MODE
+    </button>
+  </div>
+
   <!-- Chief: full-width card, no belt select needed -->
   <div class="role-grid">
     <div class="role-card chief" onclick="pickChief()">

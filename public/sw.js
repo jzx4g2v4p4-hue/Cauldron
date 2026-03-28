@@ -2,7 +2,7 @@
 // Caches the app shell for offline load.
 // Audio (cdn1.suno.ai) is always fetched live — never cached.
 
-const CACHE = 'cauldron-v1';
+const CACHE = 'cauldron-v2';
 const SHELL  = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -28,7 +28,21 @@ self.addEventListener('fetch', e => {
     return; // browser handles it natively
   }
 
-  // App shell: cache-first
+  // Keep index.html fresh so UI updates are visible after deploy.
+  if (e.request.mode === 'navigate' || e.request.url.endsWith('/index.html') || e.request.url.endsWith('/')) {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put('/index.html', copy)).catch(() => {});
+          return res;
+        })
+        .catch(() => caches.match(e.request).then(cached => cached || caches.match('/index.html')))
+    );
+    return;
+  }
+
+  // App shell: cache-first for static assets
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
   );
