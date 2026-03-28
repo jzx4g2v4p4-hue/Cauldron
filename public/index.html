@@ -921,6 +921,7 @@ audio{display:none;}
     <button onclick="openHelp()" style="margin-top:8px;background:var(--surface2);border:1px solid rgba(255,255,255,0.1);color:var(--muted);border-radius:20px;padding:5px 16px;font-family:'Black Han Sans',sans-serif;font-size:11px;letter-spacing:2px;cursor:pointer;">? HOW IT WORKS</button>
     <button onclick="openCauldronRef()" style="margin-top:6px;background:rgba(245,197,24,0.07);border:1px solid rgba(245,197,24,0.2);color:#F5C518;border-radius:20px;padding:5px 16px;font-family:'Black Han Sans',sans-serif;font-size:11px;letter-spacing:2px;cursor:pointer;">📚 CAULDRON DATABASE</button>
    <button onclick="openMusicModal()" style="margin-top:6px;background:rgba(30,136,229,0.08);border:1px solid rgba(30,136,229,0.35);color:#6FB6FF;border-radius:20px;padding:5px 16px;font-family:'Black Han Sans',sans-serif;font-size:11px;letter-spacing:2px;cursor:pointer;">🎵 MUSIC LIBRARY</button>
+   <button onclick="openBuilder()" style="margin-top:6px;background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.35);color:#72D776;border-radius:20px;padding:5px 16px;font-family:'Black Han Sans',sans-serif;font-size:11px;letter-spacing:2px;cursor:pointer;">🛠 BUILD YOUR OWN CAULDRON</button>
   </div>
 
   <!-- Server IP — only needed for local WiFi mode, hidden on hosted deploy -->
@@ -928,6 +929,15 @@ audio{display:none;}
     <span class="srv-lbl">Server IP</span>
     <input class="srv-input" id="srv-ip" placeholder="192.168.1.x">
     <div class="sdot" id="sdot"></div>
+  </div>
+
+  <div style="width:100%;max-width:400px;display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:12px;">
+    <button class="btn" onclick="openBuilder()" style="max-width:none;background:linear-gradient(135deg,#4CAF50,#357A38);color:#fff;">
+      🛠 STANDALONE BUILDER (NO SYNC)
+    </button>
+    <button class="btn" onclick="openMusicModal();showMusicBar();initMusicBar();" style="max-width:none;background:linear-gradient(135deg,#1E88E5,#1455A4);color:#fff;">
+      🎵 MUSIC ONLY MODE
+    </button>
   </div>
 
   <!-- Chief: full-width card, no belt select needed -->
@@ -1136,6 +1146,56 @@ audio{display:none;}
     </div>
   </div>
 </div>
+
+<!-- STANDALONE BUILDER -->
+<div id="s-builder" class="screen">
+  <button class="back" onclick="go('s-home')">← BACK</button>
+  <div style="width:100%;max-width:420px;display:flex;flex-direction:column;gap:12px;">
+    <div style="font-family:'Black Han Sans',sans-serif;font-size:24px;letter-spacing:3px;color:#72D776;text-align:center">BUILD YOUR OWN CAULDRON</div>
+    <div class="lbl">Standalone mode — does not sync or change normal cauldron</div>
+
+    <label class="lbl" style="text-align:left">Belt track</label>
+    <select id="builder-belt" class="srv-input" onchange="updateBuilderEstimate()">
+      <option value="yellow">YELLOW</option><option value="orange">ORANGE</option><option value="green">GREEN</option><option value="blue">BLUE</option><option value="brown">BROWN</option>
+    </select>
+
+    <label class="lbl" style="text-align:left">How many rounds?</label>
+    <input id="builder-rounds" class="srv-input" type="number" min="1" max="20" value="8" onchange="updateBuilderEstimate()" oninput="updateBuilderEstimate()">
+
+    <label class="lbl" style="text-align:left">Timer style</label>
+    <select id="builder-timer" class="srv-input" onchange="updateBuilderEstimate()">
+      <option value="normal">Normal (60s + four 30s)</option>
+      <option value="all30">All 30 sec phases</option>
+      <option value="none">No timer (manual)</option>
+    </select>
+
+    <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text);">
+      <input id="builder-music" type="checkbox" checked> Use Cauldron music during standalone run
+    </label>
+
+    <div id="builder-estimate" style="padding:10px 12px;border:1px solid rgba(245,197,24,0.25);border-radius:10px;background:rgba(245,197,24,0.07);font-size:13px;letter-spacing:1px;color:#F5C518">Estimated: --</div>
+
+    <button class="btn" onclick="startBuilderRun()" style="max-width:none">START STANDALONE</button>
+  </div>
+</div>
+
+<div id="s-builder-run" class="screen">
+  <button class="back" onclick="stopBuilderRun()">← EXIT</button>
+  <div style="width:100%;max-width:460px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+    <div id="builder-run-title" style="font-family:'Black Han Sans',sans-serif;font-size:20px;letter-spacing:3px;color:#72D776">STANDALONE</div>
+    <div id="builder-run-round" style="font-family:'Black Han Sans',sans-serif;font-size:16px;letter-spacing:2px;color:var(--muted)">ROUND 1/8</div>
+    <div id="builder-run-tech" style="font-family:'Black Han Sans',sans-serif;font-size:24px;letter-spacing:1px;text-align:center">SHADOW BOXING</div>
+    <div id="builder-run-phase" style="font-size:12px;letter-spacing:3px;color:var(--muted);text-transform:uppercase">60s overview</div>
+    <div id="builder-run-time" style="font-family:'Black Han Sans',sans-serif;font-size:80px;line-height:1;color:#F5C518">1:00</div>
+    <div style="display:flex;gap:8px;justify-content:center;align-items:center;">
+      <button class="ccb sm" onclick="builderPrev()">⏮</button>
+      <button class="ccb go" id="builder-play" onclick="builderToggle()">▶</button>
+      <button class="ccb sm" onclick="builderNext()">⏭</button>
+    </div>
+    <button class="btn" onclick="builderReset()" style="max-width:220px;background:var(--surface2);color:var(--text);">RESET STANDALONE</button>
+  </div>
+</div>
+
 
 <!-- FULL CAULDRON OVERLAY (all rounds / all belts) -->
 <div id="full-cauldron-overlay">
@@ -1983,6 +2043,117 @@ function restoreSession(){
 function go(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+}
+
+
+// ═══════════════════════════════════════════════════
+//  STANDALONE BUILDER
+// ═══════════════════════════════════════════════════
+const BUILDER_PT = { normal:[60,30,30,30,30], all30:[30,30,30,30,30], none:[0] };
+let builder={belt:'yellow', rounds:8, timerMode:'normal', useMusic:true, round:0, phase:0, timeLeft:60, running:false, ticker:null};
+
+function openBuilder(){
+  builder.belt = document.getElementById('builder-belt')?.value || 'yellow';
+  updateBuilderEstimate();
+  go('s-builder');
+}
+
+function updateBuilderEstimate(){
+  const rounds = Math.max(1, Math.min(20, Number(document.getElementById('builder-rounds')?.value || 8)));
+  const mode = document.getElementById('builder-timer')?.value || 'normal';
+  const perRound = mode==='none' ? 0 : BUILDER_PT[mode].reduce((a,b)=>a+b,0);
+  const total = perRound * rounds;
+  const est = document.getElementById('builder-estimate');
+  if(!est) return;
+  if(mode==='none') est.textContent = `Estimated: Manual timing (${rounds} rounds)`;
+  else est.textContent = `Estimated: ${Math.floor(total/60)}m ${String(total%60).padStart(2,'0')}s for ${rounds} rounds`;
+}
+
+function startBuilderRun(){
+  builder.belt = document.getElementById('builder-belt')?.value || 'yellow';
+  builder.rounds = Math.max(1, Math.min(20, Number(document.getElementById('builder-rounds')?.value || 8)));
+  builder.timerMode = document.getElementById('builder-timer')?.value || 'normal';
+  builder.useMusic = !!document.getElementById('builder-music')?.checked;
+  builder.round = 0; builder.phase = 0; builder.running = false;
+  builder.timeLeft = (BUILDER_PT[builder.timerMode][0] || 0);
+  if(builder.useMusic){ showMusicBar(); startMusic(); }
+  renderBuilderRun();
+  go('s-builder-run');
+}
+
+function builderToggle(){
+  if(builder.timerMode==='none') return;
+  builder.running = !builder.running;
+  const b = document.getElementById('builder-play');
+  if(b) b.textContent = builder.running ? '⏸' : '▶';
+  clearInterval(builder.ticker);
+  if(builder.running){ builder.ticker=setInterval(builderTick,1000); }
+}
+
+function builderTick(){
+  if(builder.timerMode==='none') return;
+  builder.timeLeft--;
+  if(builder.timeLeft<=0){ builderAdvance(); }
+  renderBuilderRun();
+}
+
+function builderAdvance(){
+  const pt = BUILDER_PT[builder.timerMode];
+  if(builder.phase < pt.length-1){
+    builder.phase++;
+    builder.timeLeft = pt[builder.phase];
+    return;
+  }
+  if(builder.round < builder.rounds-1){
+    builder.round++;
+    builder.phase=0;
+    builder.timeLeft = pt[0] || 0;
+    return;
+  }
+  clearInterval(builder.ticker);
+  builder.running=false;
+}
+
+function builderNext(){
+  if(builder.timerMode==='none'){
+    if(builder.round < builder.rounds-1) builder.round++;
+    renderBuilderRun();
+    return;
+  }
+  builderAdvance();
+  renderBuilderRun();
+}
+function builderPrev(){
+  if(builder.round>0){ builder.round--; builder.phase=0; builder.timeLeft=(BUILDER_PT[builder.timerMode][0]||0); }
+  renderBuilderRun();
+}
+function builderReset(){
+  clearInterval(builder.ticker);
+  builder.round=0; builder.phase=0; builder.running=false;
+  builder.timeLeft=(BUILDER_PT[builder.timerMode][0]||0);
+  renderBuilderRun();
+}
+function stopBuilderRun(){
+  clearInterval(builder.ticker);
+  builder.running=false;
+  go('s-home');
+}
+function renderBuilderRun(){
+  const d = DATA[builder.belt] || DATA.yellow;
+  const rr = d.rounds[builder.round % d.rounds.length];
+  const phaseName = builder.timerMode==='none' ? 'Manual round advance' : (builder.phase===0 ? (builder.timerMode==='normal' ? '60s overview' : '30s overview') : `Step ${builder.phase}`);
+  document.getElementById('builder-run-title').textContent = `${d.short} STANDALONE`;
+  document.getElementById('builder-run-round').textContent = `ROUND ${builder.round+1}/${builder.rounds}`;
+  document.getElementById('builder-run-tech').textContent = rr?.name || 'ROUND';
+  document.getElementById('builder-run-phase').textContent = phaseName;
+  const tm = document.getElementById('builder-run-time');
+  if(builder.timerMode==='none') tm.textContent='MANUAL';
+  else tm.textContent = `${Math.floor(builder.timeLeft/60)}:${String(builder.timeLeft%60).padStart(2,'0')}`;
+  const playBtn = document.getElementById('builder-play');
+  if(playBtn){
+    playBtn.textContent = builder.timerMode==='none' ? 'STEP' : (builder.running ? '⏸' : '▶');
+    playBtn.onclick = builder.timerMode==='none' ? builderNext : builderToggle;
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -3056,6 +3227,8 @@ let sunoPlaylistAuto = localStorage.getItem('c_suno_playlist_auto') !== '0';
 let sunoSyncTimer = null;
 let musicSetupPressTimer;
 let progressTimer = null;
+let playQueue    = [];
+let uploadedTrackIds = new Set();
 
 const musicBar   = document.getElementById('music-bar');
 const mbPlay     = document.getElementById('mb-play');
@@ -3063,7 +3236,7 @@ const mbTitle    = document.getElementById('mb-title');
 const mbArt      = document.getElementById('mb-artwork');
 const musicModal = document.getElementById('music-modal');
 
-function saveLib(){ localStorage.setItem('c_lib', JSON.stringify(library)); }
+function saveLib(){ const persistent = library.filter(t=>!t.uploaded); localStorage.setItem('c_lib', JSON.stringify(persistent)); }
 function saveActive(){ localStorage.setItem('c_active', activeTrackId||''); }
 function saveSunoSyncPrefs(){
   localStorage.setItem('c_suno_playlist_url', sunoPlaylistURL || '');
@@ -3134,6 +3307,15 @@ function setupSunoAutoSync(){
 //  element's inline onX= attributes call these.
 // ════════════════════════════════════════════════════
 window._sunoOnEnded = function(){
+  if(playQueue.length){
+    const nextId = playQueue.shift();
+    const queued = library.find(t=>t.id===nextId);
+    if(queued){
+      setActiveTrack(queued.id, true);
+      renderLibList();
+      return;
+    }
+  }
   if(shuffleOn){
     const others = library.filter(t=>t.id!==activeTrackId);
     const next = others.length ? others[~~(Math.random()*others.length)] : library[0];
@@ -3143,6 +3325,7 @@ window._sunoOnEnded = function(){
     const next = library[(idx + 1) % library.length];
     if(next) _sunoLoad(next.id, true);
   }
+  renderLibList();
 };
 window._sunoOnPlay  = function(){ updateMusicBar(); startProgressTimer(); };
 window._sunoOnPause = function(){ updateMusicBar(); stopProgressTimer(); };
@@ -3435,9 +3618,16 @@ function renderLibModal(){
         <button class="lib-add-btn" onclick="addTrack()">+ ADD</button>
       </div>
     </div>
+    <div class="lib-add-row" style="margin-top:8px;align-items:center;">
+        <input class="lib-input" id="li-upload" type="file" accept=".mp3,audio/mpeg,audio/*" multiple>
+        <button class="lib-add-btn" onclick="addUploadedFiles()">UPLOAD MP3</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:5px">Phone upload works instantly. Uploaded files stay for this session only.</div>
     <div id="lib-msg" class="lib-msg"></div>
     <div class="lib-section-lbl">${library.length} TRACK${library.length!==1?'S':''} — DRAG ≡ TO REORDER</div>
-    <div class="lib-list" id="lib-list"></div>`;
+    <div style="font-size:10px;letter-spacing:1px;color:var(--muted);margin:6px 0">Queue: <span id="queue-count">${playQueue.length}</span> pending <button class="lt-btn" style="padding:4px 8px" onclick="clearQueue()">CLEAR</button></div>
+    <div class="lib-list" id="lib-list"></div>
+    <div id="lib-queue"></div>`;
   renderLibList();
 }
 
@@ -3487,11 +3677,14 @@ function renderLibList(){
       <div class="lt-btns">
         <button class="lt-btn preview${isPrev?' on':''}"
                 onclick="event.stopPropagation();previewTrack('${t.id}')">${isPrev?'⏸':'▶'}</button>
+        <button class="lt-btn" title="Add to queue"
+                onclick="event.stopPropagation();queueTrack('${t.id}')">+Q</button>
         <button class="lt-btn danger"
                 onclick="event.stopPropagation();deleteTrack('${t.id}')">🗑</button>
       </div>
     </div>`;
   }).join('');
+  renderQueueList();
 }
 
 // ── Drag & Drop Handlers for Library ─────────────────
@@ -3570,6 +3763,66 @@ function addTrack(){
   // update count
   const lbl = document.querySelector('.lib-section-lbl');
   if(lbl) lbl.textContent = `${library.length} TRACK${library.length!==1?'S':''} — DRAG ≡ TO REORDER`;
+  renderQueueList();
+}
+
+
+function addUploadedFiles(){
+  const input = document.getElementById('li-upload');
+  const files = Array.from(input?.files || []);
+  if(!files.length){ showLibMsg('Pick one or more MP3 files first', 'warn'); return; }
+  let added=0;
+  files.forEach((f, idx)=>{
+    if(!f.type.startsWith('audio/') && !/\.mp3$/i.test(f.name)) return;
+    const id = `up${Date.now()}-${idx}`;
+    const name = f.name.replace(/\.[^/.]+$/, '');
+    const url = URL.createObjectURL(f);
+    library.push({id, name, url, uploaded:true});
+    uploadedTrackIds.add(id);
+    added++;
+  });
+  if(!added){ showLibMsg('No valid audio files found', 'warn'); return; }
+  saveLib();
+  input.value='';
+  if(!activeTrackId && library[0]) setActiveTrack(library[0].id);
+  renderLibList();
+  showLibMsg(`${added} file${added!==1?'s':''} uploaded from phone`, 'ok');
+}
+
+function queueTrack(id){
+  const t = library.find(x=>x.id===id);
+  if(!t) return;
+  playQueue.push(id);
+  renderQueueList();
+  showLibMsg(`Queued: ${t.name}`, 'ok');
+}
+
+function removeFromQueue(idx){
+  playQueue.splice(idx,1);
+  renderQueueList();
+}
+
+function clearQueue(){
+  playQueue = [];
+  renderQueueList();
+}
+
+function renderQueueList(){
+  const wrap = document.getElementById('lib-queue');
+  const count = document.getElementById('queue-count');
+  if(count) count.textContent = String(playQueue.length);
+  if(!wrap) return;
+  if(!playQueue.length){ wrap.innerHTML=''; return; }
+  wrap.innerHTML = `<div style="margin-top:8px;font-size:11px;letter-spacing:2px;color:var(--muted)">UP NEXT</div>` +
+    playQueue.map((id,idx)=>{
+      const t = library.find(x=>x.id===id);
+      if(!t) return '';
+      return `<div class="lib-track" style="margin-top:6px;">
+        <div class="lt-check">${idx+1}</div>
+        <div class="lt-info"><div class="lt-name">${escHtml(t.name)}</div></div>
+        <div class="lt-btns"><button class="lt-btn danger" onclick="removeFromQueue(${idx})">✕</button></div>
+      </div>`;
+    }).join('');
 }
 
 function showLibMsg(msg, type){
@@ -3587,6 +3840,9 @@ function showLibMsg(msg, type){
 
 function deleteTrack(id){
   if(id===previewId){ stopPreview(); }
+  const doomed = library.find(t=>t.id===id);
+  if(doomed?.uploaded && doomed.url?.startsWith('blob:')){ try{ URL.revokeObjectURL(doomed.url); }catch(e){} }
+  playQueue = playQueue.filter(q=>q!==id);
   library = library.filter(t=>t.id!==id);
   saveLib();
   if(id===activeTrackId){
